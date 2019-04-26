@@ -5,6 +5,10 @@
 //!
 //! For an example on how to use the parse function, see the examples in the
 //! source repository.
+#![deny(clippy::all)]
+#![warn(clippy::pedantic)]
+#![allow(clippy::many_single_char_names)]
+#![allow(clippy::non_ascii_literal)]
 
 use std::fmt;
 use std::io::BufRead;
@@ -105,11 +109,11 @@ impl Coord {
     }
 
     fn parse_component(val: &str) -> Result<f64, ()> {
-        let mut parts = val.split(":");
+        let mut parts = val.split(':');
         let deg = Self::parse_number_opt(parts.next())?;
         let min = Self::parse_number_opt(parts.next())?;
         let sec = Self::parse_number_opt(parts.next())?;
-        Ok(deg as f64 + min as f64 / 60.0 + sec as f64 / 3600.0)
+        Ok(f64::from(deg) + f64::from(min) / 60.0 + f64::from(sec) / 3600.0)
     }
 
     fn multiplier_lat(val: &str) -> Result<f64, ()> {
@@ -129,7 +133,7 @@ impl Coord {
     }
 
     fn parse(data: &str) -> Result<Self, String> {
-        let parts: Vec<&str> = data.split(" ").collect();
+        let parts: Vec<&str> = data.split(' ').collect();
         let invalid = |_| format!("Invalid coord: {}", data);
         if parts.len() != 4 {
             return Err(invalid(()));
@@ -138,7 +142,7 @@ impl Coord {
                 * Self::parse_component(parts[0]).map_err(invalid)?;
         let lng = Self::multiplier_lng(parts[3]).map_err(invalid)?
                 * Self::parse_component(parts[2]).map_err(invalid)?;
-        Ok(Coord { lat, lng })
+        Ok(Self { lat, lng })
     }
 }
 
@@ -157,7 +161,7 @@ impl fmt::Display for Geometry {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Geometry::Polygon { points } => write!(f, "Polygon[{}]", points.len()),
-            Geometry::Circle { centerpoint: _, radius } => write!(f, "Circle[r={}km]", radius),
+            Geometry::Circle { radius, .. } => write!(f, "Circle[r={}km]", radius),
         }
     }
 }
@@ -328,6 +332,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[allow(clippy::unreadable_literal)]
     fn parse_coord() {
         assert_eq!(
             Coord::parse("46:51:44 N 009:19:42 E"),
