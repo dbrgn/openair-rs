@@ -1,4 +1,4 @@
-//! Simple line-based parser for airspace files in OpenAir format (used by
+//! Simple line-based parser for airspace files in `OpenAir` format (used by
 //! flight instruments like Skytraxx and others).
 //!
 //! http://www.winpilot.com/UsersGuide/UserAirspace.asp
