@@ -73,7 +73,7 @@ impl Class {
 /// Altitude, either ground or a certain height AMSL in feet.
 #[derive(Debug, PartialEq, Eq)]
 pub enum Altitude {
-    /// Ground level
+    /// Ground/surface level
     Gnd,
     /// Feet above mean sea level
     FeetAmsl(i32),
@@ -94,6 +94,9 @@ impl fmt::Display for Altitude {
 impl Altitude {
     fn parse(data: &str) -> Result<Self, String> {
         if data == "GND" {
+            Ok(Altitude::Gnd)
+        } else if data == "SFC" {
+            // Surface == Ground
             Ok(Altitude::Gnd)
         } else {
             let is_digit = |c: &char| c.is_digit(10);
