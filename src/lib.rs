@@ -339,7 +339,7 @@ mod tests {
         );
         assert_eq!(
             Coord::parse("46:51:44 Q 009:19:42 R"),
-            Err("Invalid coordinate: 46:51:44 Q 009:19:42 R".to_string())
+            Err("Invalid coord: 46:51:44 Q 009:19:42 R".to_string())
         );
     }
 }
