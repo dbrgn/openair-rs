@@ -3,7 +3,7 @@ use std::io::BufReader;
 
 use env_logger;
 
-use skytraxx_airspace_parser::parse;
+use openair::parse;
 
 macro_rules! fail {
     ($msg:expr) => {{

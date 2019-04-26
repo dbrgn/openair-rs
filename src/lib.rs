@@ -1,4 +1,5 @@
-//! Simple line-based parser for Skytraxx airspace files.
+//! Simple line-based parser for airspace files in OpenAir format (used by
+//! flight instruments like Skytraxx and others).
 //!
 //! If you want to use this library, you need the [`parse`](fn.parse.html)
 //! function as entry point.
