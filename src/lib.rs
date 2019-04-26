@@ -1,6 +1,8 @@
 //! Simple line-based parser for airspace files in OpenAir format (used by
 //! flight instruments like Skytraxx and others).
 //!
+//! http://www.winpilot.com/UsersGuide/UserAirspace.asp
+//!
 //! If you want to use this library, you need the [`parse`](fn.parse.html)
 //! function as entry point.
 //!
