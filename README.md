@@ -2,10 +2,13 @@
 
 [![CircleCI][circle-ci-badge]][circle-ci]
 [![Rust][rust-badge]][github]
+[![Docs][docs-badge]][docs]
 
 A Rust parser for airspace files in Skytraxx format.
 
 This library requires Rust 2018 (1.31+).
+
+Docs: https://docs.rs/skytraxx-airspace-parser/
 
 
 ## Example
@@ -36,3 +39,5 @@ be dual licensed as above, without any additional terms or conditions.
 [circle-ci-badge]: https://circleci.com/gh/dbrgn/skytraxx-airspace-parser/tree/master.svg?style=shield
 [github]: https://github.com/dbrgn/skytraxx-airspace-parser
 [rust-badge]: https://img.shields.io/badge/rust-2018%2B-blue.svg?maxAge=3600
+[docs]: https://docs.rs/skytraxx-airspace-parser/
+[docs-badge]: https://img.shields.io/badge/docs-docs.rs-yellow.svg?maxAge=3600
