@@ -12,6 +12,6 @@ Possible log types:
 - `[security]` to invite users to upgrade in case of vulnerabilities.
 
 
-### [v0.1.1][v0.1.1] (2019-04-26)
+### [v0.1.2][v0.1.2] (2019-04-26)
 
 - First crates.io release
