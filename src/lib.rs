@@ -1,7 +1,7 @@
 //! Simple line-based parser for airspace files in `OpenAir` format (used by
 //! flight instruments like Skytraxx and others).
 //!
-//! http://www.winpilot.com/UsersGuide/UserAirspace.asp
+//! <http://www.winpilot.com/UsersGuide/UserAirspace.asp>
 //!
 //! If you want to use this library, you need the [`parse`](fn.parse.html)
 //! function as entry point.
@@ -93,10 +93,8 @@ impl fmt::Display for Altitude {
 
 impl Altitude {
     fn parse(data: &str) -> Result<Self, String> {
-        if data == "GND" {
-            Ok(Altitude::Gnd)
-        } else if data == "SFC" {
-            // Surface == Ground
+        if data == "GND" || data == "SFC" {
+            // Note: SFC = Surface. Seems to be another abbreviation for GND.
             Ok(Altitude::Gnd)
         } else {
             let is_digit = |c: &char| c.is_digit(10);
@@ -263,22 +261,22 @@ fn process(state: ParsingState, line: &str) -> Result<ParsingState, String> {
         }
         (ParsingState::New, 'A', 'C') => {
             // Airspace class
-            trace!("-> Found class");
             let class = Class::parse(data)?;
+            trace!("-> Found class: {}", class);
             Ok(ParsingState::HasClass(class))
         }
         (ParsingState::HasClass(c), 'A', 'N') => {
-            trace!("-> Found name");
+            trace!("-> Found name: {}", data);
             Ok(ParsingState::HasName(c, data.to_string()))
         }
         (ParsingState::HasName(c, n), 'A', 'L') => {
-            trace!("-> Found lower bound");
             let lower = Altitude::parse(data)?;
+            trace!("-> Found lower bound: {}", lower);
             Ok(ParsingState::HasLowerBound(c, n, lower))
         }
         (ParsingState::HasLowerBound(c, n, l), 'A', 'H') => {
-            trace!("-> Found upper bound");
             let upper = Altitude::parse(data)?;
+            trace!("-> Found upper bound: {}", upper);
             Ok(ParsingState::HasUpperBound(c, n, l, upper))
         }
         (ParsingState::HasUpperBound(c, n, l, u), 'D', 'P') => {
