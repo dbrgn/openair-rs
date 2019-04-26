@@ -161,7 +161,7 @@ impl fmt::Display for Geometry {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Geometry::Polygon { points } => write!(f, "Polygon[{}]", points.len()),
-            Geometry::Circle { radius, .. } => write!(f, "Circle[r={}km]", radius),
+            Geometry::Circle { radius, .. } => write!(f, "Circle[r={}mi]", radius),
         }
     }
 }
