@@ -241,10 +241,16 @@ impl fmt::Display for ParsingState {
 
 /// Process a line based on the current state. Return a new state or an error.
 fn process(state: ParsingState, line: &str) -> Result<ParsingState, String> {
+    if line.trim().is_empty() {
+        trace!("Empty line, ignoring");
+        return Ok(state)
+    }
+
     let mut chars = line.chars();
     let t1 = chars.next().ok_or_else(|| "Line too short".to_string())?;
     let t2 = chars.next().ok_or_else(|| "Line too short".to_string())?;
     let data = line.get(3..).unwrap_or("").trim();
+
     trace!("State: \"{}\", Input: \"{:1}{:1}\"", state, t1, t2);
     match (state, t1, t2) {
         (ParsingState::New, '*', _) => {
