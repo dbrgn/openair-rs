@@ -149,10 +149,15 @@ impl Coord {
 #[derive(Debug, PartialEq)]
 pub enum Geometry {
     Polygon {
+        /// Points describing the polygon.
+        ///
+        /// The polygon may be open or closed.
         points: Vec<Coord>
     },
     Circle {
+        /// The centerpoint of the circle.
         centerpoint: Coord,
+        /// Radius of the circle in nautical miles (1 NM = 1852 m).
         radius: f32,
     },
 }
@@ -161,7 +166,7 @@ impl fmt::Display for Geometry {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Geometry::Polygon { points } => write!(f, "Polygon[{}]", points.len()),
-            Geometry::Circle { radius, .. } => write!(f, "Circle[r={}mi]", radius),
+            Geometry::Circle { radius, .. } => write!(f, "Circle[r={}NM]", radius),
         }
     }
 }
