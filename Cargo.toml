@@ -3,12 +3,18 @@ name = "skytraxx-airspace-parser"
 version = "0.1.0"
 authors = ["Danilo Bargen <mail@dbrgn.ch>"]
 description = "Parser for airspace files in Skytraxx format."
+keywords = ["airspace", "skytraxx", "variometer", "flighttracker", "parser"]
+categories = ["parser-implementations"]
 homepage = "https://github.com/dbrgn/skytraxx-airspace-parser/"
 repository = "https://github.com/dbrgn/skytraxx-airspace-parser/"
 readme = "README.md"
 license = "MIT/Apache-2.0"
 include = ["/src/**/*", "/tests/**/*", "/Cargo.toml", "/README.md", "/LICENSE-*"]
 edition = "2018"
+
+[badges]
+circle-ci = { repository = "dbrgn/skytraxx-airspace-parser" }
+maintenance = { status = "actively-developed" }
 
 [dependencies]
 log = "0.4"
