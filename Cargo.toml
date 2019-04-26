@@ -1,6 +1,6 @@
 [package]
 name = "skytraxx-airspace-parser"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Danilo Bargen <mail@dbrgn.ch>"]
 description = "Parser for airspace files in Skytraxx format."
 keywords = ["airspace", "skytraxx", "variometer", "flighttracker", "parser"]
