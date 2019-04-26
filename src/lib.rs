@@ -21,22 +21,28 @@ use log::trace;
 /// Airspace class.
 #[derive(Debug, PartialEq, Eq)]
 pub enum Class {
+    /// Airspace A
+    A,
+    /// Airspace B
+    B,
     /// Airspace C
     C,
     /// Airspace D
     D,
     /// Airspace E
     E,
-    /// Airspace G
-    G,
     /// Controlled Traffic Region
     CTR,
-    /// Danger area (LS-D)
-    Danger,
-    /// Restricted area (LS-R)
+    /// Restricted area
     Restricted,
-    /// Prohibited area (LS-P)
+    /// Danger area
+    Danger,
+    /// Prohibited area
     Prohibited,
+    /// Prohibited for gliders
+    GliderProhibited,
+    /// Wave window
+    WaveWindow,
 }
 
 impl fmt::Display for Class {
@@ -48,14 +54,17 @@ impl fmt::Display for Class {
 impl Class {
     fn parse(data: &str) -> Result<Self, String> {
         match data {
+            "A" => Ok(Class::A),
+            "B" => Ok(Class::B),
             "C" => Ok(Class::C),
             "D" => Ok(Class::D),
             "E" => Ok(Class::E),
-            "G" => Ok(Class::G),
             "CTR" => Ok(Class::CTR),
-            "Q" => Ok(Class::Danger),
             "R" => Ok(Class::Restricted),
+            "Q" => Ok(Class::Danger),
             "P" => Ok(Class::Prohibited),
+            "GP" => Ok(Class::GliderProhibited),
+            "W" => Ok(Class::WaveWindow),
             other => Err(format!("Invalid class: {}", other))
         }
     }
