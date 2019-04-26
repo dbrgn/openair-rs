@@ -1,4 +1,10 @@
 //! Simple line-based parser for Skytraxx airspace files.
+//!
+//! If you want to use this library, you need the [`parse`](fn.parse.html)
+//! function as entry point.
+//!
+//! For an example on how to use the parse function, see the examples in the
+//! source repository.
 
 use std::fmt;
 use std::io::BufRead;
@@ -137,7 +143,7 @@ impl Coord {
 }
 
 #[derive(Debug, PartialEq)]
-enum Geometry {
+pub enum Geometry {
     Polygon {
         points: Vec<Coord>
     },
@@ -159,11 +165,16 @@ impl fmt::Display for Geometry {
 /// An airspace.
 #[derive(Debug)]
 pub struct Airspace {
-    name: String,
-    class: Class,
-    lower_bound: Altitude,
-    upper_bound: Altitude,
-    geom: Geometry,
+    /// The name / description of the airspace
+    pub name: String,
+    /// The airspace class
+    pub class: Class,
+    /// The lower bound of the airspace
+    pub lower_bound: Altitude,
+    /// The upper bound of the airspace
+    pub upper_bound: Altitude,
+    /// The airspace geometry
+    pub geom: Geometry,
 }
 
 impl fmt::Display for Airspace {
@@ -285,9 +296,9 @@ fn process(state: ParsingState, line: &str) -> Result<ParsingState, String> {
     }
 }
 
-/// Process the reader line by line. Once an airspace has been found
-/// completely, return that airspace. When the end of the reader has been
-/// reached, return `None`.
+/// Process the reader line by line and return the next complete airspace.
+///
+/// When the end of the reader has been reached, return `None`.
 pub fn parse<R: BufRead>(reader: &mut R) -> Result<Option<Airspace>, String> {
     let mut state = ParsingState::New;
     loop {
