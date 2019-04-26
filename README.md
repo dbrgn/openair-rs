@@ -14,6 +14,17 @@ This library requires Rust 2018 (1.31+).
 Docs: https://docs.rs/openair/
 
 
+## Status
+
+Supported features:
+
+- [x] Parse airspace metadata
+- [ ] Parse terrain metadata
+- [x] Support polygon points
+- [ ] Support arcs
+- [x] Support circles
+
+
 ## Example
 
 You can try the parser using the example program:
