@@ -124,7 +124,7 @@ impl Coord {
     }
 
     fn parse_component(val: &str) -> Result<f64, ()> {
-        let mut parts = val.split(':');
+        let mut parts = val.split(|c| c == ':' || c == '.');
         let deg = Self::parse_number_opt(parts.next())?;
         let min = Self::parse_number_opt(parts.next())?;
         let sec = Self::parse_number_opt(parts.next())?;
