@@ -12,6 +12,10 @@ Possible log types:
 - `[security]` to invite users to upgrade in case of vulnerabilities.
 
 
+### v0.1.4 (2019-04-28)
+
+- [added] Support for serde serialization
+
 ### v0.1.3 (2019-04-26)
 
 - [added] Class: Support more airspace classes
