@@ -19,6 +19,12 @@ jobs:
           name: Run tests
           command: cargo test
       - run:
+          name: Build (with serde)
+          command: cargo build --features serde
+      - run:
+          name: Run tests (with serde)
+          command: cargo test --features serde
+      - run:
           name: Run example
           command: cargo run --example parse_file example_data/Switzerland.txt
       - save_cache:

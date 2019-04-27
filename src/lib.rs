@@ -18,8 +18,12 @@ use std::io::BufRead;
 
 use log::trace;
 
+#[cfg(feature = "serde")]
+use serde::Serialize;
+
 /// Airspace class.
 #[derive(Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub enum Class {
     /// Airspace A
     A,
@@ -72,6 +76,8 @@ impl Class {
 
 /// Altitude, either ground or a certain height AMSL in feet.
 #[derive(Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
+#[cfg_attr(feature = "serde", serde(tag = "type", content = "val"))]
 pub enum Altitude {
     /// Ground/surface level
     Gnd,
@@ -111,6 +117,8 @@ impl Altitude {
 
 /// A coordinate pair (WGS84).
 #[derive(Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 pub struct Coord {
     lat: f64,
     lng: f64,
@@ -160,6 +168,8 @@ impl Coord {
 }
 
 #[derive(Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
+#[cfg_attr(feature = "serde", serde(tag = "type"))]
 pub enum Geometry {
     Polygon {
         /// Points describing the polygon.
@@ -186,6 +196,8 @@ impl fmt::Display for Geometry {
 
 /// An airspace.
 #[derive(Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 pub struct Airspace {
     /// The name / description of the airspace
     pub name: String,
@@ -370,5 +382,48 @@ mod tests {
             Coord::parse("46:51:44 Q 009:19:42 R"),
             Err("Invalid coord: 46:51:44 Q 009:19:42 R".to_string())
         );
+    }
+
+    #[cfg(feature = "serde")]
+    mod serde {
+        use super::*;
+        use serde_json::to_string;
+
+        #[test]
+        fn serialize_json() {
+            let airspace = Airspace {
+                name: "SUPERSPACE".into(),
+                class: Class::Prohibited,
+                lower_bound: Altitude::Gnd,
+                upper_bound: Altitude::FeetAgl(3000),
+                geom: Geometry::Polygon {
+                    points: vec![
+                        Coord { lat: 1.0, lng: 2.0 },
+                        Coord { lat: 1.1, lng: 2.0 },
+                        Coord { lat: 1.1, lng: 2.1 },
+                        Coord { lat: 1.0, lng: 2.1 },
+                        Coord { lat: 1.0, lng: 2.0 },
+                    ],
+                },
+            };
+            assert_eq!(
+                to_string(&airspace).unwrap(),
+                "{\"name\":\"SUPERSPACE\",\
+                  \"class\":\"Prohibited\",\
+                  \"lowerBound\":{\"type\":\"Gnd\"},\
+                  \"upperBound\":{\"type\":\"FeetAgl\",\"val\":3000},\
+                  \"geom\":{\
+                    \"type\":\"Polygon\",\
+                    \"points\":[\
+                      {\"lat\":1.0,\"lng\":2.0},\
+                      {\"lat\":1.1,\"lng\":2.0},\
+                      {\"lat\":1.1,\"lng\":2.1},\
+                      {\"lat\":1.0,\"lng\":2.1},\
+                      {\"lat\":1.0,\"lng\":2.0}\
+                    ]\
+                  }\
+                 }"
+            );
+        }
     }
 }

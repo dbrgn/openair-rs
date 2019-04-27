@@ -16,7 +16,7 @@ Docs: https://docs.rs/openair/
 
 ## Status
 
-Supported features:
+Supported file format features:
 
 - [x] Parse airspace metadata
 - [ ] Parse terrain metadata
@@ -30,6 +30,11 @@ Supported features:
 You can try the parser using the example program:
 
     $ cargo run --example parse_file example_data/Switzerland.txt
+
+
+## Serde Serialization
+
+To include serialization of all data types, enable the `serde` feature.
 
 
 ## License
