@@ -99,17 +99,21 @@ impl fmt::Display for Altitude {
 
 impl Altitude {
     fn parse(data: &str) -> Result<Self, String> {
-        if data == "GND" || data == "SFC" {
-            // Note: SFC = Surface. Seems to be another abbreviation for GND.
-            Ok(Altitude::Gnd)
-        } else {
-            let is_digit = |c: &char| c.is_digit(10);
-            let number: String = data.chars().take_while(is_digit).collect();
-            let rest: String = data.chars().skip_while(is_digit).collect();
-            match (number.parse::<i32>().ok(), &*rest) {
-                (Some(ft), " ft") => Ok(Altitude::FeetAmsl(ft)),
-                (Some(ft), " ft AGL") => Ok(Altitude::FeetAgl(ft)),
-                _ => Err(format!("Invalid altitude: {:?}", data))
+        match data {
+            "gnd" | "Gnd" | "GND" | "sfc" | "Sfc" | "SFC" => {
+                // Note: SFC = Surface. Seems to be another abbreviation for GND.
+                Ok(Altitude::Gnd)
+            }
+            other => {
+                let is_digit = |c: &char| c.is_digit(10);
+                let number: String = other.chars().take_while(is_digit).collect();
+                let rest: String = other.chars().skip_while(is_digit).collect();
+                match (number.parse::<i32>().ok(), rest.trim()) {
+                    (Some(ft), "ft") => Ok(Altitude::FeetAmsl(ft)),
+                    (Some(ft), "FT") => Ok(Altitude::FeetAmsl(ft)),
+                    (Some(ft), "ft AGL") => Ok(Altitude::FeetAgl(ft)),
+                    _ => Err(format!("Invalid altitude: {:?}", other))
+                }
             }
         }
     }
@@ -392,21 +396,47 @@ mod tests {
 
     use indoc::indoc;
 
-    #[test]
-    #[allow(clippy::unreadable_literal)]
-    fn parse_coord() {
-        assert_eq!(
-            Coord::parse("46:51:44 N 009:19:42 E"),
-            Ok(Coord { lat: 46.86222222222222, lng: 9.328333333333333 })
-        );
-        assert_eq!(
-            Coord::parse("46:51:44 S 009:19:42 W"),
-            Ok(Coord { lat: -46.86222222222222, lng: -9.328333333333333 })
-        );
-        assert_eq!(
-            Coord::parse("46:51:44 Q 009:19:42 R"),
-            Err("Invalid coord: 46:51:44 Q 009:19:42 R".to_string())
-        );
+    mod coord {
+        use super::*;
+
+        #[test]
+        #[allow(clippy::unreadable_literal)]
+        fn parse() {
+            assert_eq!(
+                Coord::parse("46:51:44 N 009:19:42 E"),
+                Ok(Coord { lat: 46.86222222222222, lng: 9.328333333333333 })
+            );
+            assert_eq!(
+                Coord::parse("46:51:44 S 009:19:42 W"),
+                Ok(Coord { lat: -46.86222222222222, lng: -9.328333333333333 })
+            );
+            assert_eq!(
+                Coord::parse("46:51:44 Q 009:19:42 R"),
+                Err("Invalid coord: 46:51:44 Q 009:19:42 R".to_string())
+            );
+        }
+    }
+
+    mod altitude {
+        use super::*;
+
+        #[test]
+        fn parse_gnd() {
+            assert_eq!(Altitude::parse("gnd").unwrap(), Altitude::Gnd);
+            assert_eq!(Altitude::parse("Gnd").unwrap(), Altitude::Gnd);
+            assert_eq!(Altitude::parse("GND").unwrap(), Altitude::Gnd);
+            assert_eq!(Altitude::parse("sfc").unwrap(), Altitude::Gnd);
+            assert_eq!(Altitude::parse("Sfc").unwrap(), Altitude::Gnd);
+            assert_eq!(Altitude::parse("SFC").unwrap(), Altitude::Gnd);
+        }
+
+        #[test]
+        fn parse_amsl() {
+            assert_eq!(Altitude::parse("42 ft").unwrap(), Altitude::FeetAmsl(42));
+            assert_eq!(Altitude::parse("42 FT").unwrap(), Altitude::FeetAmsl(42));
+            assert_eq!(Altitude::parse("42ft").unwrap(), Altitude::FeetAmsl(42));
+            assert_eq!(Altitude::parse("42  ft").unwrap(), Altitude::FeetAmsl(42));
+        }
     }
 
     mod parse_airspace {
