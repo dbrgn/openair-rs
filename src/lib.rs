@@ -195,7 +195,7 @@ impl fmt::Display for Geometry {
 }
 
 /// An airspace.
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 #[cfg_attr(feature = "serde", derive(Serialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 pub struct Airspace {
@@ -225,13 +225,19 @@ impl fmt::Display for Airspace {
     }
 }
 
+#[derive(Debug, PartialEq, Eq)]
+enum Bound {
+    Upper,
+    Lower,
+}
+
 #[derive(Debug)]
 enum ParsingState {
     New,
     HasClass(Class),
     HasName(Class, String),
-    HasLowerBound(Class, String, Altitude),
-    HasUpperBound(Class, String, Altitude, Altitude),
+    HasOneBound(Class, String, Bound, Altitude),
+    HasBothBounds(Class, String, Altitude, Altitude),
     ParsingPolygon(Class, String, Altitude, Altitude, Vec<Coord>),
     ParsingCircle(Class, String, Altitude, Altitude, Coord),
     Done(Airspace),
@@ -243,8 +249,8 @@ impl fmt::Display for ParsingState {
             ParsingState::New => "New",
             ParsingState::HasClass(..) => "HasClass",
             ParsingState::HasName(..) => "HasName",
-            ParsingState::HasLowerBound(..) => "HasLowerBound",
-            ParsingState::HasUpperBound(..) => "HasUpperBound",
+            ParsingState::HasOneBound(..) => "HasOneBound",
+            ParsingState::HasBothBounds(..) => "HasBothBounds",
             ParsingState::ParsingPolygon(..) => "ParsingPolygon",
             ParsingState::ParsingCircle(..) => "ParsingCircle",
             ParsingState::Done(..) => "Done",
@@ -277,30 +283,45 @@ fn process(state: ParsingState, line: &str) -> Result<ParsingState, String> {
             trace!("-> Found class: {}", class);
             Ok(ParsingState::HasClass(class))
         }
+
         (ParsingState::HasClass(c), 'A', 'N') => {
             trace!("-> Found name: {}", data);
             Ok(ParsingState::HasName(c, data.to_string()))
         }
+
         (ParsingState::HasName(c, n), 'A', 'L') => {
-            let lower = Altitude::parse(data)?;
-            trace!("-> Found lower bound: {}", lower);
-            Ok(ParsingState::HasLowerBound(c, n, lower))
+            let altitude = Altitude::parse(data)?;
+            trace!("-> Found lower bound: {}", altitude);
+            Ok(ParsingState::HasOneBound(c, n, Bound::Lower, altitude))
         }
-        (ParsingState::HasLowerBound(c, n, l), 'A', 'H') => {
-            let upper = Altitude::parse(data)?;
-            trace!("-> Found upper bound: {}", upper);
-            Ok(ParsingState::HasUpperBound(c, n, l, upper))
+        (ParsingState::HasName(c, n), 'A', 'H') => {
+            let altitude = Altitude::parse(data)?;
+            trace!("-> Found upper bound: {}", altitude);
+            Ok(ParsingState::HasOneBound(c, n, Bound::Upper, altitude))
         }
-        (ParsingState::HasUpperBound(c, n, l, u), 'D', 'P') => {
+
+        (ParsingState::HasOneBound(c, n, Bound::Upper, a), 'A', 'L') => {
+            let altitude = Altitude::parse(data)?;
+            trace!("-> Found lower bound: {}", altitude);
+            Ok(ParsingState::HasBothBounds(c, n, altitude, a))
+        }
+        (ParsingState::HasOneBound(c, n, Bound::Lower, a), 'A', 'H') => {
+            let altitude = Altitude::parse(data)?;
+            trace!("-> Found upper bound: {}", altitude);
+            Ok(ParsingState::HasBothBounds(c, n, a, altitude))
+        }
+
+        (ParsingState::HasBothBounds(c, n, l, u), 'D', 'P') => {
             trace!("-> Found point");
             let coords = vec![Coord::parse(data)?];
             Ok(ParsingState::ParsingPolygon(c, n, l, u, coords))
         }
-        (ParsingState::HasUpperBound(c, n, l, u), 'V', _) => {
+        (ParsingState::HasBothBounds(c, n, l, u), 'V', _) => {
             trace!("-> Found centerpoint");
             let centerpoint = Coord::parse(data.get(1..).unwrap_or(""))?;
             Ok(ParsingState::ParsingCircle(c, n, l, u, centerpoint))
         }
+
         (ParsingState::ParsingPolygon(c, n, l, u, mut p), 'D', 'P') => {
             trace!("-> Found point");
             p.push(Coord::parse(data)?);
@@ -319,6 +340,7 @@ fn process(state: ParsingState, line: &str) -> Result<ParsingState, String> {
                 geom: Geometry::Polygon { points: p },
             }))
         }
+
         (ParsingState::ParsingCircle(c, n, l, u, p), 'D', 'C') => {
             trace!("-> Found point");
             let radius = data.parse::<f32>().map_err(|_| format!("Invalid radius: {}", data))?;
@@ -330,6 +352,7 @@ fn process(state: ParsingState, line: &str) -> Result<ParsingState, String> {
                 geom: Geometry::Circle { centerpoint: p, radius },
             }))
         }
+
         (state, t1, t2) => {
             Err(format!("Parse error in state \"{}\" (unexpected \"{:1}{:1}\")", state, t1, t2))
         }
@@ -367,6 +390,8 @@ pub fn parse<R: BufRead>(reader: &mut R) -> Result<Option<Airspace>, String> {
 mod tests {
     use super::*;
 
+    use indoc::indoc;
+
     #[test]
     #[allow(clippy::unreadable_literal)]
     fn parse_coord() {
@@ -382,6 +407,62 @@ mod tests {
             Coord::parse("46:51:44 Q 009:19:42 R"),
             Err("Invalid coord: 46:51:44 Q 009:19:42 R".to_string())
         );
+    }
+
+    mod parse_airspace {
+        use super::*;
+
+        /// Parse an airspace as generated by flyland.
+        #[test]
+        fn flyland_buochs() {
+            let mut airspace = indoc!("
+                AC D
+                AN BUOCHS Be CTR 119.625
+                AL GND
+                AH 12959 ft
+                DP 46:57:13 N 008:27:52 E
+                DP 46:57:46 N 008:30:41 E
+                DP 46:57:55 N 008:28:40 E
+                DP 46:58:28 N 008:27:56 E
+                DP 46:57:13 N 008:27:52 E
+                * n-Points: 5
+            ").as_bytes();
+            let space = parse(&mut airspace).unwrap().unwrap();
+            assert_eq!(space.name, "BUOCHS Be CTR 119.625");
+            assert_eq!(space.lower_bound, Altitude::Gnd);
+            assert_eq!(space.upper_bound, Altitude::FeetAmsl(12959));
+            if let Geometry::Polygon { points } = space.geom {
+                assert_eq!(points.len(), 5);
+            } else {
+                panic!("Unexpected enum variant");
+            }
+        }
+
+        /// The order of bounds should not matter.
+        #[test]
+        fn inverted_bounds() {
+            let mut a1 = indoc!("
+                AC D
+                AN SOMESPACE
+                AL GND
+                AH 12959 ft
+                DP 46:57:13 N 008:27:52 E
+                DP 46:57:46 N 008:30:41 E
+                *
+            ").as_bytes();
+            let mut a2 = indoc!("
+                AC D
+                AN SOMESPACE
+                AH 12959 ft
+                AL GND
+                DP 46:57:13 N 008:27:52 E
+                DP 46:57:46 N 008:30:41 E
+                *
+            ").as_bytes();
+            let space1 = parse(&mut a1).unwrap().unwrap();
+            let space2 = parse(&mut a2).unwrap().unwrap();
+            assert_eq!(space1, space2);
+        }
     }
 
     #[cfg(feature = "serde")]
