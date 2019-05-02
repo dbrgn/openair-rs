@@ -20,6 +20,8 @@
 //! This parser tries to be very lenient when parsing, based on real life data.
 //! The end of an airspace is reached when the next one starts (with an `AC`
 //! record) or when the file ends.
+//!
+//! Note: AT records (label placement hints) are currently ignored
 #![deny(clippy::all)]
 #![warn(clippy::pedantic)]
 #![allow(clippy::many_single_char_names)]
@@ -353,8 +355,7 @@ fn process(builder: &mut AirspaceBuilder, line: &str) -> Result<(), String> {
     trace!("Input: \"{:1}{:1}\"", t1, t2);
     match (t1, t2) {
         ('*', _) => {
-            // Comment, ignore
-            trace!("-> Comment");
+            trace!("-> Comment, ignore");
         }
         ('A', 'C') => {
             // Airspace class
@@ -375,6 +376,9 @@ fn process(builder: &mut AirspaceBuilder, line: &str) -> Result<(), String> {
             let altitude = Altitude::parse(data)?;
             trace!("-> Found upper bound: {}", altitude);
             builder.set_upper_bound(altitude)?;
+        }
+        ('A', 'T') => {
+            trace!("-> Label placement hint, ignore");
         }
         ('V', 'X') => {
             trace!("-> Found variable");
