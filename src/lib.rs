@@ -8,6 +8,18 @@
 //!
 //! For an example on how to use the parse function, see the examples in the
 //! source repository.
+//!
+//! ## Implementation Notes
+//!
+//! Unfortunately the `OpenAir` format is really underspecified. Every device
+//! uses varying conventions. For example, there is nothing we can use as clear
+//! delimiter for airspaces. Some files delimit airspaces with an empty line,
+//! some with a comment. But on the other hand, some files even place comments
+//! between the coordinates so that they cannot be used as delimiter either.
+//!
+//! This parser tries to be very lenient when parsing, based on real life data.
+//! The end of an airspace is reached when the next one starts (with an `AC`
+//! record) or when the file ends.
 #![deny(clippy::all)]
 #![warn(clippy::pedantic)]
 #![allow(clippy::many_single_char_names)]
@@ -15,6 +27,7 @@
 
 use std::fmt;
 use std::io::BufRead;
+use std::mem;
 
 use log::trace;
 
@@ -109,8 +122,7 @@ impl Altitude {
                 let number: String = other.chars().take_while(is_digit).collect();
                 let rest: String = other.chars().skip_while(is_digit).collect();
                 match (number.parse::<i32>().ok(), rest.trim()) {
-                    (Some(ft), "ft") => Ok(Altitude::FeetAmsl(ft)),
-                    (Some(ft), "FT") => Ok(Altitude::FeetAmsl(ft)),
+                    (Some(ft), "ft") | (Some(ft), "FT") => Ok(Altitude::FeetAmsl(ft)),
                     (Some(ft), "ft AGL") => Ok(Altitude::FeetAgl(ft)),
                     _ => Err(format!("Invalid altitude: {:?}", other))
                 }
@@ -229,145 +241,168 @@ impl fmt::Display for Airspace {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
-enum Bound {
-    Upper,
-    Lower,
-}
-
+/// An incomplete airspace.
 #[derive(Debug)]
-enum ParsingState {
-    New,
-    HasClass(Class),
-    HasName(Class, String),
-    HasOneBound(Class, String, Bound, Altitude),
-    HasBothBounds(Class, String, Altitude, Altitude),
-    ParsingPolygon(Class, String, Altitude, Altitude, Vec<Coord>),
-    ParsingCircle(Class, String, Altitude, Altitude, Coord),
-    Done(Airspace),
+struct AirspaceBuilder {
+    new: bool,
+    name: Option<String>,
+    class: Option<Class>,
+    lower_bound: Option<Altitude>,
+    upper_bound: Option<Altitude>,
+    geom: Option<Geometry>,
+    var_x: Option<Coord>,
 }
 
-impl fmt::Display for ParsingState {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", match self {
-            ParsingState::New => "New",
-            ParsingState::HasClass(..) => "HasClass",
-            ParsingState::HasName(..) => "HasName",
-            ParsingState::HasOneBound(..) => "HasOneBound",
-            ParsingState::HasBothBounds(..) => "HasBothBounds",
-            ParsingState::ParsingPolygon(..) => "ParsingPolygon",
-            ParsingState::ParsingCircle(..) => "ParsingCircle",
-            ParsingState::Done(..) => "Done",
-        })
+macro_rules! setter {
+    ($method:ident, $field:ident, $type:ty) => {
+        fn $method(&mut self, $field: $type) -> Result<(), String> {
+            self.new = false;
+            if self.$field.is_some() {
+                Err(format!("Could not set {} (already defined)", stringify!($field)))
+            } else {
+                self.$field = Some($field);
+                Ok(())
+            }
+        }
     }
 }
 
-/// Process a line based on the current state. Return a new state or an error.
-fn process(state: ParsingState, line: &str) -> Result<ParsingState, String> {
+impl AirspaceBuilder {
+    fn new() -> Self {
+        Self {
+            new: true,
+            name: None,
+            class: None,
+            lower_bound: None,
+            upper_bound: None,
+            geom: None,
+            var_x: None,
+        }
+    }
+
+    setter!(set_name, name, String);
+    setter!(set_class, class, Class);
+    setter!(set_lower_bound, lower_bound, Altitude);
+    setter!(set_upper_bound, upper_bound, Altitude);
+    setter!(set_var_x, var_x, Coord);
+
+    fn add_point(&mut self, point: Coord) -> Result<(), String> {
+        self.new = false;
+        match &mut self.geom {
+            None => {
+                self.geom = Some(Geometry::Polygon {
+                    points: vec![point],
+                })
+            }
+            Some(Geometry::Polygon { ref mut points }) => {
+                points.push(point);
+            }
+            Some(Geometry::Circle { .. }) => {
+                return Err("Cannot add a point to a circle".into());
+            }
+        }
+        Ok(())
+    }
+
+    fn set_circle_radius(&mut self, radius: f32) -> Result<(), String> {
+        self.new = false;
+        let var_x = mem::replace(&mut self.var_x, None);
+        match (&self.geom, var_x) {
+            (None, Some(centerpoint)) => {
+                self.geom = Some(Geometry::Circle { centerpoint, radius });
+                Ok(())
+            }
+            (Some(_), _) => {
+                Err("Geometry already set".into())
+            }
+            (_, None) => {
+                Err("Centerpoint missing".into())
+            }
+        }
+    }
+
+    fn finish(self) -> Result<Airspace, String> {
+        trace!("Finish");
+        let name = self.name.ok_or("Missing name")?;
+        let class = self.class.ok_or_else(|| format!("Missing class for '{}'", name))?;
+        let lower_bound = self.lower_bound.ok_or_else(|| format!("Missing lower bound for '{}'", name))?;
+        let upper_bound = self.upper_bound.ok_or_else(|| format!("Missing upper bound for '{}'", name))?;
+        let geom = self.geom.ok_or_else(|| format!("Missing geom for '{}'", name))?;
+        Ok(Airspace { name, class, lower_bound, upper_bound, geom })
+    }
+}
+
+/// Return whether this line contains the start of a new airspace.
+#[inline]
+fn starts_airspace(line: &str) -> bool {
+    line.starts_with("AC ")
+}
+
+/// Process a line.
+fn process(builder: &mut AirspaceBuilder, line: &str) -> Result<(), String> {
     if line.trim().is_empty() {
         trace!("Empty line, ignoring");
-        return Ok(state)
+        return Ok(())
     }
 
-    let mut chars = line.chars();
+    let mut chars = line.chars().filter(|c: &char| !c.is_ascii_whitespace());
     let t1 = chars.next().ok_or_else(|| "Line too short".to_string())?;
-    let t2 = chars.next().ok_or_else(|| "Line too short".to_string())?;
-    let data = line.get(3..).unwrap_or("").trim();
+    let t2 = chars.next().unwrap_or(' ');
+    let data = line.splitn(2, ' ').nth(1).unwrap_or("").trim();
 
-    trace!("State: \"{}\", Input: \"{:1}{:1}\"", state, t1, t2);
-    match (state, t1, t2) {
-        (ParsingState::New, '*', _) => {
+    trace!("Input: \"{:1}{:1}\"", t1, t2);
+    match (t1, t2) {
+        ('*', _) => {
             // Comment, ignore
-            trace!("-> Ignore");
-            Ok(ParsingState::New)
+            trace!("-> Comment");
         }
-        (ParsingState::New, 'A', 'C') => {
+        ('A', 'C') => {
             // Airspace class
             let class = Class::parse(data)?;
             trace!("-> Found class: {}", class);
-            Ok(ParsingState::HasClass(class))
+            builder.set_class(class)?;
         }
-
-        (ParsingState::HasClass(c), 'A', 'N') => {
+        ('A', 'N') => {
             trace!("-> Found name: {}", data);
-            Ok(ParsingState::HasName(c, data.to_string()))
+            builder.set_name(data.to_string())?;
         }
-
-        (ParsingState::HasName(c, n), 'A', 'L') => {
+        ('A', 'L') => {
             let altitude = Altitude::parse(data)?;
             trace!("-> Found lower bound: {}", altitude);
-            Ok(ParsingState::HasOneBound(c, n, Bound::Lower, altitude))
+            builder.set_lower_bound(altitude)?;
         }
-        (ParsingState::HasName(c, n), 'A', 'H') => {
+        ('A', 'H') => {
             let altitude = Altitude::parse(data)?;
             trace!("-> Found upper bound: {}", altitude);
-            Ok(ParsingState::HasOneBound(c, n, Bound::Upper, altitude))
+            builder.set_upper_bound(altitude)?;
         }
-
-        (ParsingState::HasOneBound(c, n, Bound::Upper, a), 'A', 'L') => {
-            let altitude = Altitude::parse(data)?;
-            trace!("-> Found lower bound: {}", altitude);
-            Ok(ParsingState::HasBothBounds(c, n, altitude, a))
+        ('V', 'X') => {
+            trace!("-> Found variable");
+            let coord = Coord::parse(data.get(2..).unwrap_or(""))?;
+            builder.set_var_x(coord)?;
         }
-        (ParsingState::HasOneBound(c, n, Bound::Lower, a), 'A', 'H') => {
-            let altitude = Altitude::parse(data)?;
-            trace!("-> Found upper bound: {}", altitude);
-            Ok(ParsingState::HasBothBounds(c, n, a, altitude))
-        }
-
-        (ParsingState::HasBothBounds(c, n, l, u), 'D', 'P') => {
+        ('D', 'P') => {
             trace!("-> Found point");
-            let coords = vec![Coord::parse(data)?];
-            Ok(ParsingState::ParsingPolygon(c, n, l, u, coords))
+            let coord = Coord::parse(data)?;
+            builder.add_point(coord)?;
         }
-        (ParsingState::HasBothBounds(c, n, l, u), 'V', _) => {
-            trace!("-> Found centerpoint");
-            let centerpoint = Coord::parse(data.get(1..).unwrap_or(""))?;
-            Ok(ParsingState::ParsingCircle(c, n, l, u, centerpoint))
-        }
-
-        (ParsingState::ParsingPolygon(c, n, l, u, mut p), 'D', 'P') => {
-            trace!("-> Found point");
-            p.push(Coord::parse(data)?);
-            Ok(ParsingState::ParsingPolygon(c, n, l, u, p))
-        }
-        (ParsingState::ParsingPolygon(c, n, l, u, p), '*', _) => {
-            trace!("-> Done parsing polygon");
-            if p.len() < 2 {
-                return Err(format!("Invalid airspace polygon (only {} points)", p.len()));
-            }
-            Ok(ParsingState::Done(Airspace {
-                name: n,
-                class: c,
-                lower_bound: l,
-                upper_bound: u,
-                geom: Geometry::Polygon { points: p },
-            }))
-        }
-
-        (ParsingState::ParsingCircle(c, n, l, u, p), 'D', 'C') => {
-            trace!("-> Found point");
+        ('D', 'C') => {
+            trace!("-> Found circle radius");
             let radius = data.parse::<f32>().map_err(|_| format!("Invalid radius: {}", data))?;
-            Ok(ParsingState::Done(Airspace {
-                name: n,
-                class: c,
-                lower_bound: l,
-                upper_bound: u,
-                geom: Geometry::Circle { centerpoint: p, radius },
-            }))
+            builder.set_circle_radius(radius)?;
         }
-
-        (state, t1, t2) => {
-            Err(format!("Parse error in state \"{}\" (unexpected \"{:1}{:1}\")", state, t1, t2))
+        (t1, t2) => {
+            return Err(format!("Parse error (unexpected \"{:1}{:1}\")", t1, t2))
         }
     }
+    Ok(())
 }
 
-/// Process the reader line by line and return the next complete airspace.
-///
-/// When the end of the reader has been reached, return `None`.
-pub fn parse<R: BufRead>(reader: &mut R) -> Result<Option<Airspace>, String> {
-    let mut state = ParsingState::New;
+/// Process the reader until EOF, return a list of found airspaces.
+pub fn parse<R: BufRead>(reader: &mut R) -> Result<Vec<Airspace>, String> {
+    let mut airspaces = vec![];
+
+    let mut builder = AirspaceBuilder::new();
     loop {
         // Read next line
         let mut line = String::new();
@@ -375,18 +410,25 @@ pub fn parse<R: BufRead>(reader: &mut R) -> Result<Option<Airspace>, String> {
             .map_err(|e| format!("Could not read line: {}", e))?;
         if bytes_read == 0 {
             // EOF
-            return Ok(None);
+            trace!("Reached EOF");
+            airspaces.push(builder.finish()?);
+            return Ok(airspaces);
         }
 
         // Trim BOM
         let trimmed_line = line.trim_start_matches('\u{feff}');
 
-        // Find next state
-        state = process(state, trimmed_line)?;
+        // Determine whether we reached the start of a new airspace
+        let start_of_airspace = starts_airspace(trimmed_line);
 
-        if let ParsingState::Done(airspace) = state {
-            return Ok(Some(airspace))
+        // A new airspace starts, collect the old one first
+        if start_of_airspace && !builder.new {
+            let old_builder = mem::replace(&mut builder, AirspaceBuilder::new());
+            airspaces.push(old_builder.finish()?);
         }
+
+        // Process current line
+        process(&mut builder, trimmed_line)?;
     }
 }
 
@@ -457,7 +499,9 @@ mod tests {
                 DP 46:57:13 N 008:27:52 E
                 * n-Points: 5
             ").as_bytes();
-            let space = parse(&mut airspace).unwrap().unwrap();
+            let mut spaces = parse(&mut airspace).unwrap();
+            assert_eq!(spaces.len(), 1);
+            let space: Airspace = spaces.pop().unwrap();
             assert_eq!(space.name, "BUOCHS Be CTR 119.625");
             assert_eq!(space.lower_bound, Altitude::Gnd);
             assert_eq!(space.upper_bound, Altitude::FeetAmsl(12959));
@@ -489,8 +533,8 @@ mod tests {
                 DP 46:57:46 N 008:30:41 E
                 *
             ").as_bytes();
-            let space1 = parse(&mut a1).unwrap().unwrap();
-            let space2 = parse(&mut a2).unwrap().unwrap();
+            let space1 = parse(&mut a1).unwrap().pop().unwrap();
+            let space2 = parse(&mut a2).unwrap().pop().unwrap();
             assert_eq!(space1, space2);
         }
     }
