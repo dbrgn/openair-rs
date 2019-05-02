@@ -26,8 +26,9 @@ fn main() -> std::io::Result<()> {
     let mut reader = BufReader::new(file);
 
     // Process airspaces
+    let airspaces = parse(&mut reader).unwrap_or_else(|e| fail!(e));
     println!("Airspaces:");
-    while let Some(airspace) = parse(&mut reader).unwrap_or_else(|e| fail!(e)) {
+    for airspace in airspaces {
         println!("- {}", airspace);
     }
     println!("Done.");
