@@ -31,7 +31,9 @@ use std::fmt;
 use std::io::BufRead;
 use std::mem;
 
+use lazy_static::lazy_static;
 use log::trace;
+use regex::Regex;
 
 #[cfg(feature = "serde")]
 use serde::Serialize;
@@ -172,15 +174,23 @@ impl Coord {
     }
 
     fn parse(data: &str) -> Result<Self, String> {
-        let parts: Vec<&str> = data.split(' ').collect();
-        let invalid = |_| format!("Invalid coord: {}", data);
-        if parts.len() != 4 {
-            return Err(invalid(()));
+        lazy_static! {
+            static ref RE: Regex = Regex::new(r"(?x)
+                ([0-9]{1,3}[.:][0-9]{1,3}[.:][0-9]{1,3})  # Lat
+                \s*
+                ([NS])                                    # North / South
+                \s*
+                ([0-9]{1,3}[.:][0-9]{1,3}[.:][0-9]{1,3})  # Lon
+                \s*
+                ([EW])                                    # East / West
+            ").unwrap();
         }
-        let lat = Self::multiplier_lat(parts[1]).map_err(invalid)?
-                * Self::parse_component(parts[0]).map_err(invalid)?;
-        let lng = Self::multiplier_lng(parts[3]).map_err(invalid)?
-                * Self::parse_component(parts[2]).map_err(invalid)?;
+        let invalid = |_| format!("Invalid coord: {}", data);
+        let cap = RE.captures(data).ok_or_else(|| format!("Invalid coord: {}", data))?;
+        let lat = Self::multiplier_lat(&cap[2]).map_err(invalid)?
+                * Self::parse_component(&cap[1]).map_err(invalid)?;
+        let lng = Self::multiplier_lng(&cap[4]).map_err(invalid)?
+                * Self::parse_component(&cap[3]).map_err(invalid)?;
         Ok(Self { lat, lng })
     }
 }
@@ -450,6 +460,14 @@ mod tests {
         fn parse() {
             assert_eq!(
                 Coord::parse("46:51:44 N 009:19:42 E"),
+                Ok(Coord { lat: 46.86222222222222, lng: 9.328333333333333 })
+            );
+            assert_eq!(
+                Coord::parse("46:51:44N 009:19:42E"),
+                Ok(Coord { lat: 46.86222222222222, lng: 9.328333333333333 })
+            );
+            assert_eq!(
+                Coord::parse("46:51.44 N 009:19.42 E"),
                 Ok(Coord { lat: 46.86222222222222, lng: 9.328333333333333 })
             );
             assert_eq!(
