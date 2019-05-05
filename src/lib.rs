@@ -135,8 +135,35 @@ impl Altitude {
     }
 }
 
+/// Arc direction, either clockwise or counterclockwise.
+#[derive(Debug, PartialEq, Eq, Copy, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+pub enum Direction {
+    /// Clockwise.
+    Cw,
+    /// Counterclockwise.
+    Ccw,
+}
+
+impl Default for Direction {
+    fn default() -> Self {
+        Direction::Cw
+    }
+}
+
+impl Direction {
+    fn parse(data: &str) -> Result<Self, String> {
+        match data {
+            "+" => Ok(Direction::Cw),
+            "-" => Ok(Direction::Ccw),
+            _ => Err(format!("Invalid direction: {}", data)),
+        }
+    }
+}
+
 /// A coordinate pair (WGS84).
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 #[cfg_attr(feature = "serde", derive(Serialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 pub struct Coord {
@@ -195,6 +222,84 @@ impl Coord {
     }
 }
 
+/// An arc segment (DA record).
+#[derive(Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+pub struct ArcSegment {
+    centerpoint: Coord,
+    radius: f32,
+    angle_start: f32,
+    angle_end: f32,
+    direction: Direction,
+}
+
+impl ArcSegment {
+    /// Return the angle if it's in the range 0..360, or an error otherwise.
+    fn validate_angle(val: f32) -> Result<f32, String> {
+        if val > 360.0 {
+            return Err(format!("Angle {} too large", val));
+        }
+        if val < 0.0 {
+            return Err(format!("Angle {} is negative", val));
+        }
+        Ok(val)
+    }
+
+    fn parse(data: &str, centerpoint: Coord, direction: Direction) -> Result<Self, String> {
+        let errmsg = || format!("Invalid arc segment data: {}", data);
+        let parts: Vec<f32> = data
+            .split(',')
+            .map(str::trim)
+            .map(str::parse)
+            .collect::<Result<Vec<f32>, _>>()
+            .map_err(|_| errmsg())?;
+        if parts.len() != 3 {
+            return Err(errmsg());
+        }
+        Ok(Self {
+            centerpoint,
+            radius: parts[0],
+            angle_start: Self::validate_angle(parts[1])?,
+            angle_end: Self::validate_angle(parts[2])?,
+            direction,
+        })
+    }
+}
+
+/// An arc (DB record).
+#[derive(Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+pub struct Arc {
+    centerpoint: Coord,
+    start: Coord,
+    end: Coord,
+    direction: Direction,
+}
+
+impl Arc {
+    fn parse(data: &str, centerpoint: Coord, direction: Direction) -> Result<Self, String> {
+        let errmsg = || format!("Invalid arc data: {}", data);
+        let parts: Vec<Coord> = data
+            .split(',')
+            .map(str::trim)
+            .map(Coord::parse)
+            .collect::<Result<Vec<Coord>, _>>()
+            .map_err(|_| errmsg())?;
+        if parts.len() != 2 {
+            return Err(errmsg());
+        }
+        let mut coords = parts.into_iter();
+        Ok(Self {
+            centerpoint,
+            start: coords.next().unwrap(),
+            end: coords.next().unwrap(),
+            direction,
+        })
+    }
+}
+
 #[derive(Debug, PartialEq)]
 #[cfg_attr(feature = "serde", derive(Serialize))]
 #[cfg_attr(feature = "serde", serde(tag = "type"))]
@@ -250,23 +355,6 @@ impl fmt::Display for Airspace {
             self.upper_bound,
             self.geom,
         )
-    }
-}
-
-/// Arc direction, either clockwise or counterclockwise.
-#[derive(Debug, PartialEq, Eq)]
-pub enum Direction {
-    CW,
-    CCW,
-}
-
-impl Direction {
-    fn parse(data: &str) -> Result<Self, String> {
-        match data {
-            "+" => Ok(Direction::CW),
-            "-" => Ok(Direction::CCW),
-            _ => return Err(format!("Invalid direction: {}", data)),
-        }
     }
 }
 
@@ -338,10 +426,9 @@ impl AirspaceBuilder {
 
     fn set_circle_radius(&mut self, radius: f32) -> Result<(), String> {
         self.new = false;
-        let var_x = mem::replace(&mut self.var_x, None);
-        match (&self.geom, var_x) {
+        match (&self.geom, &self.var_x) {
             (None, Some(centerpoint)) => {
-                self.geom = Some(Geometry::Circle { centerpoint, radius });
+                self.geom = Some(Geometry::Circle { centerpoint: centerpoint.clone(), radius });
                 Ok(())
             }
             (Some(_), _) => {
@@ -429,6 +516,18 @@ fn process(builder: &mut AirspaceBuilder, line: &str) -> Result<(), String> {
             trace!("-> Found circle radius");
             let radius = data.parse::<f32>().map_err(|_| format!("Invalid radius: {}", data))?;
             builder.set_circle_radius(radius)?;
+        }
+        ('D', 'A') => {
+            trace!("-> Found arc segment");
+            let centerpoint = builder.var_x.clone().ok_or("Centerpoint missing")?;
+            let direction = builder.var_d.unwrap_or_default();
+            let arc_segment = ArcSegment::parse(data, centerpoint, direction)?;
+        }
+        ('D', 'B') => {
+            trace!("-> Found arc");
+            let centerpoint = builder.var_x.clone().ok_or("Centerpoint missing")?;
+            let direction = builder.var_d.unwrap_or_default();
+            let arc = Arc::parse(data, centerpoint, direction)?;
         }
         (t1, t2) => {
             return Err(format!("Parse error (unexpected \"{:1}{:1}\")", t1, t2))
@@ -525,6 +624,65 @@ mod tests {
             assert_eq!(Altitude::parse("42 FT").unwrap(), Altitude::FeetAmsl(42));
             assert_eq!(Altitude::parse("42ft").unwrap(), Altitude::FeetAmsl(42));
             assert_eq!(Altitude::parse("42  ft").unwrap(), Altitude::FeetAmsl(42));
+        }
+    }
+
+    mod arc_segment {
+        use super::*;
+
+        static coord: Coord = Coord { lat: 1.0, lng: 2.0 };
+
+        #[test]
+        fn parse_ok() {
+            assert_eq!(
+                ArcSegment::parse("10,270,290", coord.clone(), Direction::Cw).unwrap(),
+                ArcSegment {
+                    centerpoint: coord.clone(),
+                    radius: 10.0,
+                    angle_start: 270.0,
+                    angle_end: 290.0,
+                    direction: Direction::Cw,
+                }
+            );
+            assert_eq!(
+                ArcSegment::parse("23,0,30", coord.clone(), Direction::Ccw).unwrap(),
+                ArcSegment {
+                    centerpoint: coord.clone(),
+                    radius: 23.0,
+                    angle_start: 0.0,
+                    angle_end: 30.0,
+                    direction: Direction::Ccw,
+                }
+            );
+        }
+
+        #[test]
+        fn parse_with_spaces() {
+            assert_eq!(
+                ArcSegment::parse(" 10 ,    270 ,290", coord.clone(), Direction::Cw).unwrap(),
+                ArcSegment {
+                    centerpoint: coord.clone(),
+                    radius: 10.0,
+                    angle_start: 270.0,
+                    angle_end: 290.0,
+                    direction: Direction::Cw,
+                }
+            );
+        }
+
+        #[test]
+        fn parse_invalid_too_many() {
+            assert!(ArcSegment::parse(" 10 ,    270 ,290,", coord.clone(), Direction::Cw).is_err());
+        }
+
+        #[test]
+        fn parse_invalid_angle_too_large() {
+            assert!(ArcSegment::parse("10,270,361", coord.clone(), Direction::Cw).is_err());
+        }
+
+        #[test]
+        fn parse_invalid_angle_negative() {
+            assert!(ArcSegment::parse("10,270,-10", coord.clone(), Direction::Cw).is_err());
         }
     }
 
