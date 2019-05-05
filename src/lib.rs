@@ -138,7 +138,6 @@ impl Altitude {
 /// Arc direction, either clockwise or counterclockwise.
 #[derive(Debug, PartialEq, Eq, Copy, Clone)]
 #[cfg_attr(feature = "serde", derive(Serialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 pub enum Direction {
     /// Clockwise.
     Cw,
@@ -165,7 +164,6 @@ impl Direction {
 /// A coordinate pair (WGS84).
 #[derive(Debug, PartialEq, Clone)]
 #[cfg_attr(feature = "serde", derive(Serialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 pub struct Coord {
     lat: f64,
     lng: f64,
@@ -270,7 +268,6 @@ impl ArcSegment {
 /// An arc (DB record).
 #[derive(Debug, PartialEq)]
 #[cfg_attr(feature = "serde", derive(Serialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 pub struct Arc {
     centerpoint: Coord,
     start: Coord,
@@ -300,15 +297,25 @@ impl Arc {
     }
 }
 
+/// A polygon segment.
+#[derive(Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
+#[cfg_attr(feature = "serde", serde(tag = "type"))]
+pub enum PolygonSegment {
+    PointTo(Coord),
+    ArcTo(Arc),
+    ArcSegmentTo(ArcSegment),
+}
+
 #[derive(Debug, PartialEq)]
 #[cfg_attr(feature = "serde", derive(Serialize))]
 #[cfg_attr(feature = "serde", serde(tag = "type"))]
 pub enum Geometry {
     Polygon {
-        /// Points describing the polygon.
+        /// Segments describing the polygon.
         ///
         /// The polygon may be open or closed.
-        points: Vec<Coord>
+        segments: Vec<PolygonSegment>
     },
     Circle {
         /// The centerpoint of the circle.
@@ -321,7 +328,7 @@ pub enum Geometry {
 impl fmt::Display for Geometry {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Geometry::Polygon { points } => write!(f, "Polygon[{}]", points.len()),
+            Geometry::Polygon { segments } => write!(f, "Polygon[{}]", segments.len()),
             Geometry::Circle { radius, .. } => write!(f, "Circle[r={}NM]", radius),
         }
     }
@@ -411,11 +418,11 @@ impl AirspaceBuilder {
         match &mut self.geom {
             None => {
                 self.geom = Some(Geometry::Polygon {
-                    points: vec![point],
+                    segments: vec![PolygonSegment::PointTo(point)],
                 })
             }
-            Some(Geometry::Polygon { ref mut points }) => {
-                points.push(point);
+            Some(Geometry::Polygon { ref mut segments }) => {
+                segments.push(PolygonSegment::PointTo(point));
             }
             Some(Geometry::Circle { .. }) => {
                 return Err("Cannot add a point to a circle".into());
@@ -710,8 +717,8 @@ mod tests {
             assert_eq!(space.name, "BUOCHS Be CTR 119.625");
             assert_eq!(space.lower_bound, Altitude::Gnd);
             assert_eq!(space.upper_bound, Altitude::FeetAmsl(12959));
-            if let Geometry::Polygon { points } = space.geom {
-                assert_eq!(points.len(), 5);
+            if let Geometry::Polygon { segments } = space.geom {
+                assert_eq!(segments.len(), 5);
             } else {
                 panic!("Unexpected enum variant");
             }
@@ -757,12 +764,12 @@ mod tests {
                 lower_bound: Altitude::Gnd,
                 upper_bound: Altitude::FeetAgl(3000),
                 geom: Geometry::Polygon {
-                    points: vec![
-                        Coord { lat: 1.0, lng: 2.0 },
-                        Coord { lat: 1.1, lng: 2.0 },
-                        Coord { lat: 1.1, lng: 2.1 },
-                        Coord { lat: 1.0, lng: 2.1 },
-                        Coord { lat: 1.0, lng: 2.0 },
+                    segments: vec![
+                        PolygonSegment::PointTo(Coord { lat: 1.0, lng: 2.0 }),
+                        PolygonSegment::PointTo(Coord { lat: 1.1, lng: 2.0 }),
+                        PolygonSegment::PointTo(Coord { lat: 1.1, lng: 2.1 }),
+                        PolygonSegment::PointTo(Coord { lat: 1.0, lng: 2.1 }),
+                        PolygonSegment::PointTo(Coord { lat: 1.0, lng: 2.0 }),
                     ],
                 },
             };
@@ -774,12 +781,12 @@ mod tests {
                   \"upperBound\":{\"type\":\"FeetAgl\",\"val\":3000},\
                   \"geom\":{\
                     \"type\":\"Polygon\",\
-                    \"points\":[\
-                      {\"lat\":1.0,\"lng\":2.0},\
-                      {\"lat\":1.1,\"lng\":2.0},\
-                      {\"lat\":1.1,\"lng\":2.1},\
-                      {\"lat\":1.0,\"lng\":2.1},\
-                      {\"lat\":1.0,\"lng\":2.0}\
+                    \"segments\":[\
+                      {\"type\":\"PointTo\",\"lat\":1.0,\"lng\":2.0},\
+                      {\"type\":\"PointTo\",\"lat\":1.1,\"lng\":2.0},\
+                      {\"type\":\"PointTo\",\"lat\":1.1,\"lng\":2.1},\
+                      {\"type\":\"PointTo\",\"lat\":1.0,\"lng\":2.1},\
+                      {\"type\":\"PointTo\",\"lat\":1.0,\"lng\":2.0}\
                     ]\
                   }\
                  }"
