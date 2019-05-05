@@ -302,9 +302,9 @@ impl Arc {
 #[cfg_attr(feature = "serde", derive(Serialize))]
 #[cfg_attr(feature = "serde", serde(tag = "type"))]
 pub enum PolygonSegment {
-    PointTo(Coord),
-    ArcTo(Arc),
-    ArcSegmentTo(ArcSegment),
+    Point(Coord),
+    Arc(Arc),
+    ArcSegment(ArcSegment),
 }
 
 #[derive(Debug, PartialEq)]
@@ -413,16 +413,16 @@ impl AirspaceBuilder {
     setter!(set_var_x, var_x, Coord);
     setter!(set_var_d, var_d, Direction);
 
-    fn add_point(&mut self, point: Coord) -> Result<(), String> {
+    fn add_segment(&mut self, segment: PolygonSegment) -> Result<(), String> {
         self.new = false;
         match &mut self.geom {
             None => {
                 self.geom = Some(Geometry::Polygon {
-                    segments: vec![PolygonSegment::PointTo(point)],
+                    segments: vec![segment],
                 })
             }
             Some(Geometry::Polygon { ref mut segments }) => {
-                segments.push(PolygonSegment::PointTo(point));
+                segments.push(segment);
             }
             Some(Geometry::Circle { .. }) => {
                 return Err("Cannot add a point to a circle".into());
@@ -517,7 +517,7 @@ fn process(builder: &mut AirspaceBuilder, line: &str) -> Result<(), String> {
         ('D', 'P') => {
             trace!("-> Found point");
             let coord = Coord::parse(data)?;
-            builder.add_point(coord)?;
+            builder.add_segment(PolygonSegment::Point(coord))?;
         }
         ('D', 'C') => {
             trace!("-> Found circle radius");
@@ -529,12 +529,14 @@ fn process(builder: &mut AirspaceBuilder, line: &str) -> Result<(), String> {
             let centerpoint = builder.var_x.clone().ok_or("Centerpoint missing")?;
             let direction = builder.var_d.unwrap_or_default();
             let arc_segment = ArcSegment::parse(data, centerpoint, direction)?;
+            builder.add_segment(PolygonSegment::ArcSegment(arc_segment))?;
         }
         ('D', 'B') => {
             trace!("-> Found arc");
             let centerpoint = builder.var_x.clone().ok_or("Centerpoint missing")?;
             let direction = builder.var_d.unwrap_or_default();
             let arc = Arc::parse(data, centerpoint, direction)?;
+            builder.add_segment(PolygonSegment::Arc(arc))?;
         }
         (t1, t2) => {
             return Err(format!("Parse error (unexpected \"{:1}{:1}\")", t1, t2))
@@ -765,11 +767,11 @@ mod tests {
                 upper_bound: Altitude::FeetAgl(3000),
                 geom: Geometry::Polygon {
                     segments: vec![
-                        PolygonSegment::PointTo(Coord { lat: 1.0, lng: 2.0 }),
-                        PolygonSegment::PointTo(Coord { lat: 1.1, lng: 2.0 }),
-                        PolygonSegment::PointTo(Coord { lat: 1.1, lng: 2.1 }),
-                        PolygonSegment::PointTo(Coord { lat: 1.0, lng: 2.1 }),
-                        PolygonSegment::PointTo(Coord { lat: 1.0, lng: 2.0 }),
+                        PolygonSegment::Point(Coord { lat: 1.0, lng: 2.0 }),
+                        PolygonSegment::Point(Coord { lat: 1.1, lng: 2.0 }),
+                        PolygonSegment::Point(Coord { lat: 1.1, lng: 2.1 }),
+                        PolygonSegment::Point(Coord { lat: 1.0, lng: 2.1 }),
+                        PolygonSegment::Point(Coord { lat: 1.0, lng: 2.0 }),
                     ],
                 },
             };
@@ -782,11 +784,11 @@ mod tests {
                   \"geom\":{\
                     \"type\":\"Polygon\",\
                     \"segments\":[\
-                      {\"type\":\"PointTo\",\"lat\":1.0,\"lng\":2.0},\
-                      {\"type\":\"PointTo\",\"lat\":1.1,\"lng\":2.0},\
-                      {\"type\":\"PointTo\",\"lat\":1.1,\"lng\":2.1},\
-                      {\"type\":\"PointTo\",\"lat\":1.0,\"lng\":2.1},\
-                      {\"type\":\"PointTo\",\"lat\":1.0,\"lng\":2.0}\
+                      {\"type\":\"Point\",\"lat\":1.0,\"lng\":2.0},\
+                      {\"type\":\"Point\",\"lat\":1.1,\"lng\":2.0},\
+                      {\"type\":\"Point\",\"lat\":1.1,\"lng\":2.1},\
+                      {\"type\":\"Point\",\"lat\":1.0,\"lng\":2.1},\
+                      {\"type\":\"Point\",\"lat\":1.0,\"lng\":2.0}\
                     ]\
                   }\
                  }"
