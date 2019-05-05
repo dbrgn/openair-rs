@@ -138,6 +138,7 @@ impl Altitude {
 /// Arc direction, either clockwise or counterclockwise.
 #[derive(Debug, PartialEq, Eq, Copy, Clone)]
 #[cfg_attr(feature = "serde", derive(Serialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "lowercase"))]
 pub enum Direction {
     /// Clockwise.
     Cw,
@@ -639,14 +640,14 @@ mod tests {
     mod arc_segment {
         use super::*;
 
-        static coord: Coord = Coord { lat: 1.0, lng: 2.0 };
+        static COORD: Coord = Coord { lat: 1.0, lng: 2.0 };
 
         #[test]
         fn parse_ok() {
             assert_eq!(
-                ArcSegment::parse("10,270,290", coord.clone(), Direction::Cw).unwrap(),
+                ArcSegment::parse("10,270,290", COORD.clone(), Direction::Cw).unwrap(),
                 ArcSegment {
-                    centerpoint: coord.clone(),
+                    centerpoint: COORD.clone(),
                     radius: 10.0,
                     angle_start: 270.0,
                     angle_end: 290.0,
@@ -654,9 +655,9 @@ mod tests {
                 }
             );
             assert_eq!(
-                ArcSegment::parse("23,0,30", coord.clone(), Direction::Ccw).unwrap(),
+                ArcSegment::parse("23,0,30", COORD.clone(), Direction::Ccw).unwrap(),
                 ArcSegment {
-                    centerpoint: coord.clone(),
+                    centerpoint: COORD.clone(),
                     radius: 23.0,
                     angle_start: 0.0,
                     angle_end: 30.0,
@@ -668,9 +669,9 @@ mod tests {
         #[test]
         fn parse_with_spaces() {
             assert_eq!(
-                ArcSegment::parse(" 10 ,    270 ,290", coord.clone(), Direction::Cw).unwrap(),
+                ArcSegment::parse(" 10 ,    270 ,290", COORD.clone(), Direction::Cw).unwrap(),
                 ArcSegment {
-                    centerpoint: coord.clone(),
+                    centerpoint: COORD.clone(),
                     radius: 10.0,
                     angle_start: 270.0,
                     angle_end: 290.0,
@@ -681,17 +682,17 @@ mod tests {
 
         #[test]
         fn parse_invalid_too_many() {
-            assert!(ArcSegment::parse(" 10 ,    270 ,290,", coord.clone(), Direction::Cw).is_err());
+            assert!(ArcSegment::parse(" 10 ,    270 ,290,", COORD.clone(), Direction::Cw).is_err());
         }
 
         #[test]
         fn parse_invalid_angle_too_large() {
-            assert!(ArcSegment::parse("10,270,361", coord.clone(), Direction::Cw).is_err());
+            assert!(ArcSegment::parse("10,270,361", COORD.clone(), Direction::Cw).is_err());
         }
 
         #[test]
         fn parse_invalid_angle_negative() {
-            assert!(ArcSegment::parse("10,270,-10", coord.clone(), Direction::Cw).is_err());
+            assert!(ArcSegment::parse("10,270,-10", COORD.clone(), Direction::Cw).is_err());
         }
     }
 
@@ -769,8 +770,19 @@ mod tests {
                     segments: vec![
                         PolygonSegment::Point(Coord { lat: 1.0, lng: 2.0 }),
                         PolygonSegment::Point(Coord { lat: 1.1, lng: 2.0 }),
-                        PolygonSegment::Point(Coord { lat: 1.1, lng: 2.1 }),
-                        PolygonSegment::Point(Coord { lat: 1.0, lng: 2.1 }),
+                        PolygonSegment::Arc(Arc {
+                            centerpoint: Coord { lat: 1.05, lng: 2.05 },
+                            start: Coord { lat: 1.1, lng: 2.0 },
+                            end: Coord { lat: 1.0, lng: 2.1 },
+                            direction: Direction::Cw,
+                        }),
+                        PolygonSegment::ArcSegment(ArcSegment {
+                            centerpoint: Coord { lat: 3.0, lng: 3.0 },
+                            radius: 1.5,
+                            angle_start: 30.0,
+                            angle_end: 45.0,
+                            direction: Direction::Ccw,
+                        }),
                         PolygonSegment::Point(Coord { lat: 1.0, lng: 2.0 }),
                     ],
                 },
@@ -786,8 +798,17 @@ mod tests {
                     \"segments\":[\
                       {\"type\":\"Point\",\"lat\":1.0,\"lng\":2.0},\
                       {\"type\":\"Point\",\"lat\":1.1,\"lng\":2.0},\
-                      {\"type\":\"Point\",\"lat\":1.1,\"lng\":2.1},\
-                      {\"type\":\"Point\",\"lat\":1.0,\"lng\":2.1},\
+                      {\"type\":\"Arc\",\
+                       \"centerpoint\":{\"lat\":1.05,\"lng\":2.05},\
+                       \"start\":{\"lat\":1.1,\"lng\":2.0},\
+                       \"end\":{\"lat\":1.0,\"lng\":2.1},\
+                       \"direction\":\"cw\"},\
+                      {\"type\":\"ArcSegment\",\
+                       \"centerpoint\":{\"lat\":3.0,\"lng\":3.0},\
+                       \"radius\":1.5,\
+                       \"angleStart\":30.0,\
+                       \"angleEnd\":45.0,\
+                       \"direction\":\"ccw\"},\
                       {\"type\":\"Point\",\"lat\":1.0,\"lng\":2.0}\
                     ]\
                   }\
