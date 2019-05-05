@@ -253,6 +253,23 @@ impl fmt::Display for Airspace {
     }
 }
 
+/// Arc direction, either clockwise or counterclockwise.
+#[derive(Debug, PartialEq, Eq)]
+pub enum Direction {
+    CW,
+    CCW,
+}
+
+impl Direction {
+    fn parse(data: &str) -> Result<Self, String> {
+        match data {
+            "+" => Ok(Direction::CW),
+            "-" => Ok(Direction::CCW),
+            _ => return Err(format!("Invalid direction: {}", data)),
+        }
+    }
+}
+
 /// An incomplete airspace.
 #[derive(Debug)]
 struct AirspaceBuilder {
@@ -263,6 +280,7 @@ struct AirspaceBuilder {
     upper_bound: Option<Altitude>,
     geom: Option<Geometry>,
     var_x: Option<Coord>,
+    var_d: Option<Direction>,
 }
 
 macro_rules! setter {
@@ -289,6 +307,7 @@ impl AirspaceBuilder {
             upper_bound: None,
             geom: None,
             var_x: None,
+            var_d: None,
         }
     }
 
@@ -297,6 +316,7 @@ impl AirspaceBuilder {
     setter!(set_lower_bound, lower_bound, Altitude);
     setter!(set_upper_bound, upper_bound, Altitude);
     setter!(set_var_x, var_x, Coord);
+    setter!(set_var_d, var_d, Direction);
 
     fn add_point(&mut self, point: Coord) -> Result<(), String> {
         self.new = false;
@@ -334,7 +354,7 @@ impl AirspaceBuilder {
     }
 
     fn finish(self) -> Result<Airspace, String> {
-        trace!("Finish");
+        trace!("Finish {:?}", self.name);
         let name = self.name.ok_or("Missing name")?;
         let class = self.class.ok_or_else(|| format!("Missing class for '{}'", name))?;
         let lower_bound = self.lower_bound.ok_or_else(|| format!("Missing lower bound for '{}'", name))?;
@@ -391,9 +411,14 @@ fn process(builder: &mut AirspaceBuilder, line: &str) -> Result<(), String> {
             trace!("-> Label placement hint, ignore");
         }
         ('V', 'X') => {
-            trace!("-> Found variable");
+            trace!("-> Found X variable");
             let coord = Coord::parse(data.get(2..).unwrap_or(""))?;
             builder.set_var_x(coord)?;
+        }
+        ('V', 'D') => {
+            trace!("-> Found D variable");
+            let direction = Direction::parse(data.get(2..).unwrap_or(""))?;
+            builder.set_var_d(direction)?;
         }
         ('D', 'P') => {
             trace!("-> Found point");
