@@ -113,6 +113,8 @@ pub enum Altitude {
     FeetAgl(i32),
     /// Flight level
     FlightLevel(u16),
+    /// Unlimited
+    Unlimited,
 }
 
 impl fmt::Display for Altitude {
@@ -122,6 +124,7 @@ impl fmt::Display for Altitude {
             Altitude::FeetAmsl(ft) => write!(f, "{} ft AMSL", ft),
             Altitude::FeetAgl(ft) => write!(f, "{} ft AGL", ft),
             Altitude::FlightLevel(ft) => write!(f, "FL{}", ft),
+            Altitude::Unlimited => write!(f, "Unlimited"),
         }
     }
 }
@@ -132,6 +135,9 @@ impl Altitude {
             "gnd" | "Gnd" | "GND" | "sfc" | "Sfc" | "SFC" => {
                 // Note: SFC = Surface. Seems to be another abbreviation for GND.
                 Ok(Altitude::Gnd)
+            }
+            "unl" | "Unl" | "UNL" | "unlimited" | "Unlimited" | "UNLIMITED" => {
+                Ok(Altitude::Unlimited)
             }
             fl if fl.starts_with("fl") || fl.starts_with("Fl") || fl.starts_with("FL") => {
                 match fl[2..].trim().parse::<u16>() {
