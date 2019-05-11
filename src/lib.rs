@@ -64,6 +64,8 @@ pub enum Class {
     GliderProhibited,
     /// Wave window
     WaveWindow,
+    /// Radio mandatory zone
+    RadioMandatoryZone,
 }
 
 impl fmt::Display for Class {
@@ -86,6 +88,7 @@ impl Class {
             "P" => Ok(Class::Prohibited),
             "GP" => Ok(Class::GliderProhibited),
             "W" => Ok(Class::WaveWindow),
+            "RMZ" => Ok(Class::RadioMandatoryZone),
             other => Err(format!("Invalid class: {}", other))
         }
     }
