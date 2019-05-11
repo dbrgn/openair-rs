@@ -134,11 +134,19 @@ impl Altitude {
                 let is_digit = |c: &char| c.is_digit(10);
                 let number: String = other.chars().take_while(is_digit).collect();
                 let rest: String = other.chars().skip_while(is_digit).collect();
-                match (number.parse::<i32>().ok(), rest.trim()) {
-                    (Some(ft), "ft") | (Some(ft), "FT") => Ok(Altitude::FeetAmsl(ft)),
-                    (Some(ft), "ft AGL") => Ok(Altitude::FeetAgl(ft)),
-                    _ => Err(format!("Invalid altitude: {}", other))
+                lazy_static! {
+                    static ref RE_AMSL: Regex = Regex::new(r"(?i)^ft$").unwrap();
+                    static ref RE_AGL: Regex = Regex::new(r"(?i)^ft (:?agl|gnd|sfc)$").unwrap();
                 }
+                if let Ok(ft) = number.parse::<i32>() {
+                    let trimmed = rest.trim();
+                    if RE_AMSL.is_match(trimmed) {
+                        return Ok(Altitude::FeetAmsl(ft))
+                    } else if RE_AGL.is_match(trimmed) {
+                        return Ok(Altitude::FeetAgl(ft))
+                    }
+                }
+                Err(format!("Invalid altitude: {}", other))
             }
         }
     }
@@ -649,6 +657,13 @@ mod tests {
             assert_eq!(Altitude::parse("42 FT").unwrap(), Altitude::FeetAmsl(42));
             assert_eq!(Altitude::parse("42ft").unwrap(), Altitude::FeetAmsl(42));
             assert_eq!(Altitude::parse("42  ft").unwrap(), Altitude::FeetAmsl(42));
+        }
+
+        #[test]
+        fn parse_agl() {
+            assert_eq!(Altitude::parse("42 ft agl").unwrap(), Altitude::FeetAgl(42));
+            assert_eq!(Altitude::parse("42FT Agl").unwrap(), Altitude::FeetAgl(42));
+            assert_eq!(Altitude::parse("42 ft GND").unwrap(), Altitude::FeetAgl(42));
         }
 
         #[test]
