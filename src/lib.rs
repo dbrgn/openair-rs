@@ -135,10 +135,36 @@ impl Altitude {
     }
 }
 
-/// A coordinate pair (WGS84).
-#[derive(Debug, PartialEq)]
+/// Arc direction, either clockwise or counterclockwise.
+#[derive(Debug, PartialEq, Eq, Copy, Clone)]
 #[cfg_attr(feature = "serde", derive(Serialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "serde", serde(rename_all = "lowercase"))]
+pub enum Direction {
+    /// Clockwise.
+    Cw,
+    /// Counterclockwise.
+    Ccw,
+}
+
+impl Default for Direction {
+    fn default() -> Self {
+        Direction::Cw
+    }
+}
+
+impl Direction {
+    fn parse(data: &str) -> Result<Self, String> {
+        match data {
+            "+" => Ok(Direction::Cw),
+            "-" => Ok(Direction::Ccw),
+            _ => Err(format!("Invalid direction: {}", data)),
+        }
+    }
+}
+
+/// A coordinate pair (WGS84).
+#[derive(Debug, PartialEq, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct Coord {
     lat: f64,
     lng: f64,
@@ -195,15 +221,102 @@ impl Coord {
     }
 }
 
+/// An arc segment (DA record).
+#[derive(Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+pub struct ArcSegment {
+    centerpoint: Coord,
+    radius: f32,
+    angle_start: f32,
+    angle_end: f32,
+    direction: Direction,
+}
+
+impl ArcSegment {
+    /// Return the angle if it's in the range 0..360, or an error otherwise.
+    fn validate_angle(val: f32) -> Result<f32, String> {
+        if val > 360.0 {
+            return Err(format!("Angle {} too large", val));
+        }
+        if val < 0.0 {
+            return Err(format!("Angle {} is negative", val));
+        }
+        Ok(val)
+    }
+
+    fn parse(data: &str, centerpoint: Coord, direction: Direction) -> Result<Self, String> {
+        let errmsg = || format!("Invalid arc segment data: {}", data);
+        let parts: Vec<f32> = data
+            .split(',')
+            .map(str::trim)
+            .map(str::parse)
+            .collect::<Result<Vec<f32>, _>>()
+            .map_err(|_| errmsg())?;
+        if parts.len() != 3 {
+            return Err(errmsg());
+        }
+        Ok(Self {
+            centerpoint,
+            radius: parts[0],
+            angle_start: Self::validate_angle(parts[1])?,
+            angle_end: Self::validate_angle(parts[2])?,
+            direction,
+        })
+    }
+}
+
+/// An arc (DB record).
+#[derive(Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
+pub struct Arc {
+    centerpoint: Coord,
+    start: Coord,
+    end: Coord,
+    direction: Direction,
+}
+
+impl Arc {
+    fn parse(data: &str, centerpoint: Coord, direction: Direction) -> Result<Self, String> {
+        let errmsg = || format!("Invalid arc data: {}", data);
+        let parts: Vec<Coord> = data
+            .split(',')
+            .map(str::trim)
+            .map(Coord::parse)
+            .collect::<Result<Vec<Coord>, _>>()
+            .map_err(|_| errmsg())?;
+        if parts.len() != 2 {
+            return Err(errmsg());
+        }
+        let mut coords = parts.into_iter();
+        Ok(Self {
+            centerpoint,
+            start: coords.next().unwrap(),
+            end: coords.next().unwrap(),
+            direction,
+        })
+    }
+}
+
+/// A polygon segment.
+#[derive(Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
+#[cfg_attr(feature = "serde", serde(tag = "type"))]
+pub enum PolygonSegment {
+    Point(Coord),
+    Arc(Arc),
+    ArcSegment(ArcSegment),
+}
+
 #[derive(Debug, PartialEq)]
 #[cfg_attr(feature = "serde", derive(Serialize))]
 #[cfg_attr(feature = "serde", serde(tag = "type"))]
 pub enum Geometry {
     Polygon {
-        /// Points describing the polygon.
+        /// Segments describing the polygon.
         ///
         /// The polygon may be open or closed.
-        points: Vec<Coord>
+        segments: Vec<PolygonSegment>
     },
     Circle {
         /// The centerpoint of the circle.
@@ -216,7 +329,7 @@ pub enum Geometry {
 impl fmt::Display for Geometry {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Geometry::Polygon { points } => write!(f, "Polygon[{}]", points.len()),
+            Geometry::Polygon { segments } => write!(f, "Polygon[{}]", segments.len()),
             Geometry::Circle { radius, .. } => write!(f, "Circle[r={}NM]", radius),
         }
     }
@@ -263,6 +376,7 @@ struct AirspaceBuilder {
     upper_bound: Option<Altitude>,
     geom: Option<Geometry>,
     var_x: Option<Coord>,
+    var_d: Option<Direction>,
 }
 
 macro_rules! setter {
@@ -289,6 +403,7 @@ impl AirspaceBuilder {
             upper_bound: None,
             geom: None,
             var_x: None,
+            var_d: None,
         }
     }
 
@@ -297,17 +412,18 @@ impl AirspaceBuilder {
     setter!(set_lower_bound, lower_bound, Altitude);
     setter!(set_upper_bound, upper_bound, Altitude);
     setter!(set_var_x, var_x, Coord);
+    setter!(set_var_d, var_d, Direction);
 
-    fn add_point(&mut self, point: Coord) -> Result<(), String> {
+    fn add_segment(&mut self, segment: PolygonSegment) -> Result<(), String> {
         self.new = false;
         match &mut self.geom {
             None => {
                 self.geom = Some(Geometry::Polygon {
-                    points: vec![point],
+                    segments: vec![segment],
                 })
             }
-            Some(Geometry::Polygon { ref mut points }) => {
-                points.push(point);
+            Some(Geometry::Polygon { ref mut segments }) => {
+                segments.push(segment);
             }
             Some(Geometry::Circle { .. }) => {
                 return Err("Cannot add a point to a circle".into());
@@ -318,10 +434,9 @@ impl AirspaceBuilder {
 
     fn set_circle_radius(&mut self, radius: f32) -> Result<(), String> {
         self.new = false;
-        let var_x = mem::replace(&mut self.var_x, None);
-        match (&self.geom, var_x) {
+        match (&self.geom, &self.var_x) {
             (None, Some(centerpoint)) => {
-                self.geom = Some(Geometry::Circle { centerpoint, radius });
+                self.geom = Some(Geometry::Circle { centerpoint: centerpoint.clone(), radius });
                 Ok(())
             }
             (Some(_), _) => {
@@ -334,7 +449,7 @@ impl AirspaceBuilder {
     }
 
     fn finish(self) -> Result<Airspace, String> {
-        trace!("Finish");
+        trace!("Finish {:?}", self.name);
         let name = self.name.ok_or("Missing name")?;
         let class = self.class.ok_or_else(|| format!("Missing class for '{}'", name))?;
         let lower_bound = self.lower_bound.ok_or_else(|| format!("Missing lower bound for '{}'", name))?;
@@ -391,19 +506,38 @@ fn process(builder: &mut AirspaceBuilder, line: &str) -> Result<(), String> {
             trace!("-> Label placement hint, ignore");
         }
         ('V', 'X') => {
-            trace!("-> Found variable");
+            trace!("-> Found X variable");
             let coord = Coord::parse(data.get(2..).unwrap_or(""))?;
             builder.set_var_x(coord)?;
+        }
+        ('V', 'D') => {
+            trace!("-> Found D variable");
+            let direction = Direction::parse(data.get(2..).unwrap_or(""))?;
+            builder.set_var_d(direction)?;
         }
         ('D', 'P') => {
             trace!("-> Found point");
             let coord = Coord::parse(data)?;
-            builder.add_point(coord)?;
+            builder.add_segment(PolygonSegment::Point(coord))?;
         }
         ('D', 'C') => {
             trace!("-> Found circle radius");
             let radius = data.parse::<f32>().map_err(|_| format!("Invalid radius: {}", data))?;
             builder.set_circle_radius(radius)?;
+        }
+        ('D', 'A') => {
+            trace!("-> Found arc segment");
+            let centerpoint = builder.var_x.clone().ok_or("Centerpoint missing")?;
+            let direction = builder.var_d.unwrap_or_default();
+            let arc_segment = ArcSegment::parse(data, centerpoint, direction)?;
+            builder.add_segment(PolygonSegment::ArcSegment(arc_segment))?;
+        }
+        ('D', 'B') => {
+            trace!("-> Found arc");
+            let centerpoint = builder.var_x.clone().ok_or("Centerpoint missing")?;
+            let direction = builder.var_d.unwrap_or_default();
+            let arc = Arc::parse(data, centerpoint, direction)?;
+            builder.add_segment(PolygonSegment::Arc(arc))?;
         }
         (t1, t2) => {
             return Err(format!("Parse error (unexpected \"{:1}{:1}\")", t1, t2))
@@ -503,6 +637,65 @@ mod tests {
         }
     }
 
+    mod arc_segment {
+        use super::*;
+
+        static COORD: Coord = Coord { lat: 1.0, lng: 2.0 };
+
+        #[test]
+        fn parse_ok() {
+            assert_eq!(
+                ArcSegment::parse("10,270,290", COORD.clone(), Direction::Cw).unwrap(),
+                ArcSegment {
+                    centerpoint: COORD.clone(),
+                    radius: 10.0,
+                    angle_start: 270.0,
+                    angle_end: 290.0,
+                    direction: Direction::Cw,
+                }
+            );
+            assert_eq!(
+                ArcSegment::parse("23,0,30", COORD.clone(), Direction::Ccw).unwrap(),
+                ArcSegment {
+                    centerpoint: COORD.clone(),
+                    radius: 23.0,
+                    angle_start: 0.0,
+                    angle_end: 30.0,
+                    direction: Direction::Ccw,
+                }
+            );
+        }
+
+        #[test]
+        fn parse_with_spaces() {
+            assert_eq!(
+                ArcSegment::parse(" 10 ,    270 ,290", COORD.clone(), Direction::Cw).unwrap(),
+                ArcSegment {
+                    centerpoint: COORD.clone(),
+                    radius: 10.0,
+                    angle_start: 270.0,
+                    angle_end: 290.0,
+                    direction: Direction::Cw,
+                }
+            );
+        }
+
+        #[test]
+        fn parse_invalid_too_many() {
+            assert!(ArcSegment::parse(" 10 ,    270 ,290,", COORD.clone(), Direction::Cw).is_err());
+        }
+
+        #[test]
+        fn parse_invalid_angle_too_large() {
+            assert!(ArcSegment::parse("10,270,361", COORD.clone(), Direction::Cw).is_err());
+        }
+
+        #[test]
+        fn parse_invalid_angle_negative() {
+            assert!(ArcSegment::parse("10,270,-10", COORD.clone(), Direction::Cw).is_err());
+        }
+    }
+
     mod parse_airspace {
         use super::*;
 
@@ -527,8 +720,8 @@ mod tests {
             assert_eq!(space.name, "BUOCHS Be CTR 119.625");
             assert_eq!(space.lower_bound, Altitude::Gnd);
             assert_eq!(space.upper_bound, Altitude::FeetAmsl(12959));
-            if let Geometry::Polygon { points } = space.geom {
-                assert_eq!(points.len(), 5);
+            if let Geometry::Polygon { segments } = space.geom {
+                assert_eq!(segments.len(), 5);
             } else {
                 panic!("Unexpected enum variant");
             }
@@ -574,12 +767,23 @@ mod tests {
                 lower_bound: Altitude::Gnd,
                 upper_bound: Altitude::FeetAgl(3000),
                 geom: Geometry::Polygon {
-                    points: vec![
-                        Coord { lat: 1.0, lng: 2.0 },
-                        Coord { lat: 1.1, lng: 2.0 },
-                        Coord { lat: 1.1, lng: 2.1 },
-                        Coord { lat: 1.0, lng: 2.1 },
-                        Coord { lat: 1.0, lng: 2.0 },
+                    segments: vec![
+                        PolygonSegment::Point(Coord { lat: 1.0, lng: 2.0 }),
+                        PolygonSegment::Point(Coord { lat: 1.1, lng: 2.0 }),
+                        PolygonSegment::Arc(Arc {
+                            centerpoint: Coord { lat: 1.05, lng: 2.05 },
+                            start: Coord { lat: 1.1, lng: 2.0 },
+                            end: Coord { lat: 1.0, lng: 2.1 },
+                            direction: Direction::Cw,
+                        }),
+                        PolygonSegment::ArcSegment(ArcSegment {
+                            centerpoint: Coord { lat: 3.0, lng: 3.0 },
+                            radius: 1.5,
+                            angle_start: 30.0,
+                            angle_end: 45.0,
+                            direction: Direction::Ccw,
+                        }),
+                        PolygonSegment::Point(Coord { lat: 1.0, lng: 2.0 }),
                     ],
                 },
             };
@@ -591,12 +795,21 @@ mod tests {
                   \"upperBound\":{\"type\":\"FeetAgl\",\"val\":3000},\
                   \"geom\":{\
                     \"type\":\"Polygon\",\
-                    \"points\":[\
-                      {\"lat\":1.0,\"lng\":2.0},\
-                      {\"lat\":1.1,\"lng\":2.0},\
-                      {\"lat\":1.1,\"lng\":2.1},\
-                      {\"lat\":1.0,\"lng\":2.1},\
-                      {\"lat\":1.0,\"lng\":2.0}\
+                    \"segments\":[\
+                      {\"type\":\"Point\",\"lat\":1.0,\"lng\":2.0},\
+                      {\"type\":\"Point\",\"lat\":1.1,\"lng\":2.0},\
+                      {\"type\":\"Arc\",\
+                       \"centerpoint\":{\"lat\":1.05,\"lng\":2.05},\
+                       \"start\":{\"lat\":1.1,\"lng\":2.0},\
+                       \"end\":{\"lat\":1.0,\"lng\":2.1},\
+                       \"direction\":\"cw\"},\
+                      {\"type\":\"ArcSegment\",\
+                       \"centerpoint\":{\"lat\":3.0,\"lng\":3.0},\
+                       \"radius\":1.5,\
+                       \"angleStart\":30.0,\
+                       \"angleEnd\":45.0,\
+                       \"direction\":\"ccw\"},\
+                      {\"type\":\"Point\",\"lat\":1.0,\"lng\":2.0}\
                     ]\
                   }\
                  }"
