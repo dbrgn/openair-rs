@@ -102,6 +102,8 @@ pub enum Altitude {
     FeetAmsl(i32),
     /// Feet above ground level
     FeetAgl(i32),
+    /// Flight level
+    FlightLevel(u16),
 }
 
 impl fmt::Display for Altitude {
@@ -110,6 +112,7 @@ impl fmt::Display for Altitude {
             Altitude::Gnd => write!(f, "GND"),
             Altitude::FeetAmsl(ft) => write!(f, "{} ft AMSL", ft),
             Altitude::FeetAgl(ft) => write!(f, "{} ft AGL", ft),
+            Altitude::FlightLevel(ft) => write!(f, "FL{}", ft),
         }
     }
 }
@@ -121,6 +124,12 @@ impl Altitude {
                 // Note: SFC = Surface. Seems to be another abbreviation for GND.
                 Ok(Altitude::Gnd)
             }
+            fl if fl.starts_with("fl") || fl.starts_with("Fl") || fl.starts_with("FL") => {
+                match fl[2..].trim().parse::<u16>() {
+                    Ok(val) => Ok(Altitude::FlightLevel(val)),
+                    Err(_) => Err(format!("Invalid altitude: {}", fl)),
+                }
+            }
             other => {
                 let is_digit = |c: &char| c.is_digit(10);
                 let number: String = other.chars().take_while(is_digit).collect();
@@ -128,7 +137,7 @@ impl Altitude {
                 match (number.parse::<i32>().ok(), rest.trim()) {
                     (Some(ft), "ft") | (Some(ft), "FT") => Ok(Altitude::FeetAmsl(ft)),
                     (Some(ft), "ft AGL") => Ok(Altitude::FeetAgl(ft)),
-                    _ => Err(format!("Invalid altitude: {:?}", other))
+                    _ => Err(format!("Invalid altitude: {}", other))
                 }
             }
         }
@@ -634,6 +643,13 @@ mod tests {
             assert_eq!(Altitude::parse("42 FT").unwrap(), Altitude::FeetAmsl(42));
             assert_eq!(Altitude::parse("42ft").unwrap(), Altitude::FeetAmsl(42));
             assert_eq!(Altitude::parse("42  ft").unwrap(), Altitude::FeetAmsl(42));
+        }
+
+        #[test]
+        fn parse_fl() {
+            assert_eq!(Altitude::parse("fl50").unwrap(), Altitude::FlightLevel(50));
+            assert_eq!(Altitude::parse("FL 180").unwrap(), Altitude::FlightLevel(180));
+            assert_eq!(Altitude::parse("FL130").unwrap(), Altitude::FlightLevel(130));
         }
     }
 
