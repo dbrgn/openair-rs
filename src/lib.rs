@@ -389,7 +389,7 @@ struct AirspaceBuilder {
 }
 
 macro_rules! setter {
-    ($method:ident, $field:ident, $type:ty) => {
+    (ONCE, $method:ident, $field:ident, $type:ty) => {
         fn $method(&mut self, $field: $type) -> Result<(), String> {
             self.new = false;
             if self.$field.is_some() {
@@ -399,7 +399,13 @@ macro_rules! setter {
                 Ok(())
             }
         }
-    }
+    };
+    (MANY, $method:ident, $field:ident, $type:ty) => {
+        fn $method(&mut self, $field: $type) {
+            self.new = false;
+            self.$field = Some($field);
+        }
+    };
 }
 
 impl AirspaceBuilder {
@@ -416,12 +422,12 @@ impl AirspaceBuilder {
         }
     }
 
-    setter!(set_name, name, String);
-    setter!(set_class, class, Class);
-    setter!(set_lower_bound, lower_bound, Altitude);
-    setter!(set_upper_bound, upper_bound, Altitude);
-    setter!(set_var_x, var_x, Coord);
-    setter!(set_var_d, var_d, Direction);
+    setter!(ONCE, set_name, name, String);
+    setter!(ONCE, set_class, class, Class);
+    setter!(ONCE, set_lower_bound, lower_bound, Altitude);
+    setter!(ONCE, set_upper_bound, upper_bound, Altitude);
+    setter!(MANY, set_var_x, var_x, Coord);
+    setter!(MANY, set_var_d, var_d, Direction);
 
     fn add_segment(&mut self, segment: PolygonSegment) -> Result<(), String> {
         self.new = false;
@@ -517,12 +523,12 @@ fn process(builder: &mut AirspaceBuilder, line: &str) -> Result<(), String> {
         ('V', 'X') => {
             trace!("-> Found X variable");
             let coord = Coord::parse(data.get(2..).unwrap_or(""))?;
-            builder.set_var_x(coord)?;
+            builder.set_var_x(coord);
         }
         ('V', 'D') => {
             trace!("-> Found D variable");
             let direction = Direction::parse(data.get(2..).unwrap_or(""))?;
-            builder.set_var_d(direction)?;
+            builder.set_var_d(direction);
         }
         ('D', 'P') => {
             trace!("-> Found point");
@@ -767,6 +773,43 @@ mod tests {
             let space1 = parse(&mut a1).unwrap().pop().unwrap();
             let space2 = parse(&mut a2).unwrap().pop().unwrap();
             assert_eq!(space1, space2);
+        }
+
+        /// Variables can be defined multiple times.
+        #[test]
+        fn multi_variable() {
+            let mut a = indoc!("
+                AC D
+                AN SOMESPACE
+                AL GND
+                AH FL100
+                V X=52:00:00N 013:00:00E
+                V D=+
+                DA 2,0,30
+                V X=52:00:00N 013:00:00E
+                V D=-
+                DA 4,60,30
+                *
+            ").as_bytes();
+            let airspace = parse(&mut a).unwrap().pop().unwrap();
+            assert_eq!(airspace.geom, Geometry::Polygon {
+                segments: vec![
+                    PolygonSegment::ArcSegment(ArcSegment {
+                        centerpoint: Coord { lat: 52.0, lng: 13.0 },
+                        radius: 2.0,
+                        angle_start: 0.0,
+                        angle_end: 30.0,
+                        direction: Direction::Cw,
+                    }),
+                    PolygonSegment::ArcSegment(ArcSegment {
+                        centerpoint: Coord { lat: 52.0, lng: 13.0 },
+                        radius: 4.0,
+                        angle_start: 60.0,
+                        angle_end: 30.0,
+                        direction: Direction::Ccw,
+                    }),
+                ],
+            });
         }
     }
 
