@@ -68,6 +68,8 @@ pub enum Class {
     WaveWindow,
     /// Radio mandatory zone
     RadioMandatoryZone,
+    /// Transponder mandatory zone
+    TransponderMandatoryZone,
 }
 
 impl fmt::Display for Class {
@@ -92,6 +94,7 @@ impl Class {
             "GP" => Ok(Class::GliderProhibited),
             "W" => Ok(Class::WaveWindow),
             "RMZ" => Ok(Class::RadioMandatoryZone),
+            "TMZ" => Ok(Class::TransponderMandatoryZone),
             other => Err(format!("Invalid class: {}", other))
         }
     }
