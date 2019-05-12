@@ -135,11 +135,15 @@ impl fmt::Display for Altitude {
 impl Altitude {
     fn parse(data: &str) -> Result<Self, String> {
         match data {
-            "gnd" | "Gnd" | "GND" | "sfc" | "Sfc" | "SFC" | "0" => {
+            "gnd" | "Gnd" | "GND" |
+            "sfc" | "Sfc" | "SFC" |
+            "0" => {
                 // Note: SFC = Surface. Seems to be another abbreviation for GND.
                 Ok(Altitude::Gnd)
             }
-            "unl" | "Unl" | "UNL" | "unlimited" | "Unlimited" | "UNLIMITED" => {
+            "unl" | "Unl" | "UNL" |
+            "unlim" | "Unlim" | "UNLIM" |
+            "unlimited" | "Unlimited" | "UNLIMITED" => {
                 Ok(Altitude::Unlimited)
             }
             fl if fl.starts_with("fl") || fl.starts_with("Fl") || fl.starts_with("FL") => {
@@ -528,9 +532,7 @@ fn process(builder: &mut AirspaceBuilder, line: &str) -> Result<(), String> {
 
     trace!("Input: \"{:1}{:1}\"", t1, t2);
     match (t1, t2) {
-        ('*', _) => {
-            trace!("-> Comment, ignore");
-        }
+        ('*', _) => trace!("-> Comment, ignore"),
         ('A', 'C') => {
             // Airspace class
             let class = Class::parse(data)?;
@@ -554,6 +556,8 @@ fn process(builder: &mut AirspaceBuilder, line: &str) -> Result<(), String> {
         ('A', 'T') => {
             trace!("-> Label placement hint, ignore");
         }
+        ('S', 'P') => trace!("-> Pen, ignore"),
+        ('S', 'B') => trace!("-> Brush, ignore"),
         ('V', 'X') => {
             trace!("-> Found X variable");
             let coord = Coord::parse(data.get(2..).unwrap_or(""))?;
