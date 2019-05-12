@@ -21,8 +21,9 @@ Supported file format features:
 - [x] Parse airspace metadata
 - [ ] Parse terrain metadata
 - [x] Support polygon points
-- [ ] Support arcs
+- [x] Support arcs
 - [x] Support circles
+- [ ] Support AY/AF/AG extension records
 
 Label placement hints (AT) and style records (SP, SB) are not supported.
 
