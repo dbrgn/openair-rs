@@ -52,6 +52,8 @@ pub enum Class {
     D,
     /// Airspace E
     E,
+    /// Airspace F
+    F,
     /// Airspace G
     G,
     /// Controlled Traffic Region
@@ -86,6 +88,7 @@ impl Class {
             "C" => Ok(Class::C),
             "D" => Ok(Class::D),
             "E" => Ok(Class::E),
+            "F" => Ok(Class::F),
             "G" => Ok(Class::G),
             "CTR" => Ok(Class::CTR),
             "R" => Ok(Class::Restricted),
