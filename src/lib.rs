@@ -386,7 +386,6 @@ impl fmt::Display for Geometry {
 #[derive(Debug, PartialEq)]
 #[cfg_attr(feature = "serde", derive(Serialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
-#[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
 pub struct Airspace {
     /// The name / description of the airspace
     pub name: String,
@@ -394,6 +393,7 @@ pub struct Airspace {
     pub class: Class,
     /// The airspace type (extension record)
     #[cfg_attr(feature = "serde", serde(rename = "type"))]
+    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     pub type_: Option<String>,
     /// The lower bound of the airspace
     pub lower_bound: Altitude,
@@ -403,8 +403,10 @@ pub struct Airspace {
     pub geom: Geometry,
     /// Frequency of the controlling ATC-station or other authority in that
     /// particular airspace (extension record)
+    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     pub frequency: Option<String>,
     /// Call-sign for this station
+    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     pub call_sign: Option<String>,
 }
 
@@ -972,6 +974,9 @@ mod tests {
                         PolygonSegment::Point(Coord { lat: 1.0, lng: 2.0 }),
                     ],
                 },
+                type_: None,
+                frequency: None,
+                call_sign: None,
             };
             assert_eq!(
                 to_string(&airspace).unwrap(),
