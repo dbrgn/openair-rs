@@ -245,21 +245,21 @@ impl Coord {
     fn parse(data: &str) -> Result<Self, String> {
         lazy_static! {
             static ref RE: Regex = Regex::new(r"(?x)
-                ([0-9]{1,3}[\.:][0-9]{1,3}[\.:][0-9]{1,3}\.?[0-9]{1,3}?)  # Lat
+                ([0-9]{1,3}[\.:][0-9]{1,3}[\.:][0-9]{1,3}(:?\.?[0-9]{1,3})?)  # Lat
                 \s*
                 ([NS])                                    # North / South
                 \s*
-                ([0-9]{1,3}[\.:][0-9]{1,3}[\.:][0-9]{1,3}\.?[0-9]{1,3}?)  # Lon
+                ([0-9]{1,3}[\.:][0-9]{1,3}[\.:][0-9]{1,3}(:?\.?[0-9]{1,3})?)  # Lon
                 \s*
                 ([EW])                                    # East / West
             ").unwrap();
         }
         let invalid = |_| format!("Invalid coord: {}", data);
         let cap = RE.captures(data).ok_or_else(|| format!("Invalid coord: {}", data))?;
-        let lat = Self::multiplier_lat(&cap[2]).map_err(invalid)?
+        let lat = Self::multiplier_lat(&cap[3]).map_err(invalid)?
                 * Self::parse_component(&cap[1]).map_err(invalid)?;
-        let lng = Self::multiplier_lng(&cap[4]).map_err(invalid)?
-                * Self::parse_component(&cap[3]).map_err(invalid)?;
+        let lng = Self::multiplier_lng(&cap[6]).map_err(invalid)?
+                * Self::parse_component(&cap[4]).map_err(invalid)?;
         Ok(Self { lat, lng })
     }
 }
@@ -663,6 +663,7 @@ mod tests {
                 Coord::parse("1:0:0.123 N 2:0:1.2 E"),
                 Ok(Coord { lat: 1.0 + 0.123 / 3600.0, lng: 2.0 + 1.2 / 3600.0 })
             );
+            assert!(Coord::parse("49:33:8N 5:47:37E").is_ok());
         }
 
         #[test]
