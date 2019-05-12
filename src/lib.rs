@@ -386,17 +386,26 @@ impl fmt::Display for Geometry {
 #[derive(Debug, PartialEq)]
 #[cfg_attr(feature = "serde", derive(Serialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
 pub struct Airspace {
     /// The name / description of the airspace
     pub name: String,
     /// The airspace class
     pub class: Class,
+    /// The airspace type (extension record)
+    #[cfg_attr(feature = "serde", serde(rename = "type"))]
+    pub type_: Option<String>,
     /// The lower bound of the airspace
     pub lower_bound: Altitude,
     /// The upper bound of the airspace
     pub upper_bound: Altitude,
     /// The airspace geometry
     pub geom: Geometry,
+    /// Frequency of the controlling ATC-station or other authority in that
+    /// particular airspace (extension record)
+    pub frequency: Option<String>,
+    /// Call-sign for this station
+    pub call_sign: Option<String>,
 }
 
 impl fmt::Display for Airspace {
@@ -416,12 +425,20 @@ impl fmt::Display for Airspace {
 /// An incomplete airspace.
 #[derive(Debug)]
 struct AirspaceBuilder {
+    // Base records
     new: bool,
     name: Option<String>,
     class: Option<Class>,
     lower_bound: Option<Altitude>,
     upper_bound: Option<Altitude>,
     geom: Option<Geometry>,
+
+    // Extension records
+    type_: Option<String>,
+    frequency: Option<String>,
+    call_sign: Option<String>,
+
+    // Variables
     var_x: Option<Coord>,
     var_d: Option<Direction>,
 }
@@ -455,6 +472,9 @@ impl AirspaceBuilder {
             lower_bound: None,
             upper_bound: None,
             geom: None,
+            type_: None,
+            frequency: None,
+            call_sign: None,
             var_x: None,
             var_d: None,
         }
@@ -464,6 +484,9 @@ impl AirspaceBuilder {
     setter!(ONCE, set_class, class, Class);
     setter!(ONCE, set_lower_bound, lower_bound, Altitude);
     setter!(ONCE, set_upper_bound, upper_bound, Altitude);
+    setter!(ONCE, set_type, type_, String);
+    setter!(ONCE, set_frequency, frequency, String);
+    setter!(ONCE, set_call_sign, call_sign, String);
     setter!(MANY, set_var_x, var_x, Coord);
     setter!(MANY, set_var_d, var_d, Direction);
 
@@ -508,7 +531,16 @@ impl AirspaceBuilder {
         let lower_bound = self.lower_bound.ok_or_else(|| format!("Missing lower bound for '{}'", name))?;
         let upper_bound = self.upper_bound.ok_or_else(|| format!("Missing upper bound for '{}'", name))?;
         let geom = self.geom.ok_or_else(|| format!("Missing geom for '{}'", name))?;
-        Ok(Airspace { name, class, lower_bound, upper_bound, geom })
+        Ok(Airspace {
+            name,
+            class,
+            type_: self.type_,
+            lower_bound,
+            upper_bound,
+            geom,
+            frequency: self.frequency,
+            call_sign: self.call_sign,
+        })
     }
 }
 
@@ -555,6 +587,18 @@ fn process(builder: &mut AirspaceBuilder, line: &str) -> Result<(), String> {
         }
         ('A', 'T') => {
             trace!("-> Label placement hint, ignore");
+        }
+        ('A', 'Y') => {
+            trace!("-> Found type: {}", data);
+            builder.set_type(data.to_string())?;
+        }
+        ('A', 'F') => {
+            trace!("-> Found frequency: {}", data);
+            builder.set_frequency(data.to_string())?;
+        }
+        ('A', 'G') => {
+            trace!("-> Found call sign: {}", data);
+            builder.set_call_sign(data.to_string())?;
         }
         ('S', 'P') => trace!("-> Pen, ignore"),
         ('S', 'B') => trace!("-> Brush, ignore"),
@@ -873,6 +917,26 @@ mod tests {
                     }),
                 ],
             });
+        }
+
+        /// Test AY/AF/AG records.
+        #[test]
+        fn extension_records() {
+            let mut a = indoc!("
+                AC D
+                AN SOMESPACE
+                AL GND
+                AH 100 ft AGL
+                AY AWY
+                AF 132.350
+                AG Dutch Mil
+                V X=52:00:00 N 013:00:00 E
+                DC 5
+            ").as_bytes();
+            let airspace = parse(&mut a).unwrap().pop().unwrap();
+            assert_eq!(airspace.type_, Some("AWY".to_string()));
+            assert_eq!(airspace.frequency, Some("132.350".to_string()));
+            assert_eq!(airspace.call_sign, Some("Dutch Mil".to_string()));
         }
     }
 

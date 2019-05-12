@@ -21,9 +21,9 @@ Supported file format features:
 - [x] Parse airspace metadata
 - [ ] Parse terrain metadata
 - [x] Support polygon points
-- [x] Support arcs
 - [x] Support circles
-- [ ] Support AY/AF/AG extension records
+- [x] Support arcs
+- [x] Support AY/AF/AG extension records
 
 Label placement hints (AT) and style records (SP, SB) are not supported.
 
@@ -38,8 +38,10 @@ between the coordinates so that they cannot be used as delimiter either.
 
 This parser tries to be very lenient when parsing, based on real life data.
 The end of an airspace is reached when the next one starts (with an `AC`
-record) or when the file ends. **NOTE: Altitude levels without a unit specifier
-(e.g. "1000 GND") will be treated as feet!)**
+record) or when the file ends.
+
+**NOTE: Altitude levels without a unit specifier (e.g. "1000 GND") will be
+treated as feet!)**
 
 
 ## Example
