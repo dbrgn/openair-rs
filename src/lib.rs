@@ -232,23 +232,23 @@ impl Coord {
 
     fn multiplier_lat(val: &str) -> Result<f64, ()> {
         match val {
-            "N" => Ok(1.0),
-            "S" => Ok(-1.0),
+            "N" | "n" => Ok(1.0),
+            "S" | "s" => Ok(-1.0),
             _ => Err(())
         }
     }
 
     fn multiplier_lng(val: &str) -> Result<f64, ()> {
         match val {
-            "E" => Ok(1.0),
-            "W" => Ok(-1.0),
+            "E" | "e" => Ok(1.0),
+            "W" | "w" => Ok(-1.0),
             _ => Err(())
         }
     }
 
     fn parse(data: &str) -> Result<Self, String> {
         lazy_static! {
-            static ref RE: Regex = Regex::new(r"(?x)
+            static ref RE: Regex = Regex::new(r"(?xi)
                 ([0-9]{1,3}[\.:][0-9]{1,3}[\.:][0-9]{1,3}(:?\.?[0-9]{1,3})?)  # Lat
                 \s*
                 ([NS])                                    # North / South
@@ -693,28 +693,41 @@ mod tests {
         #[test]
         #[allow(clippy::unreadable_literal)]
         fn parse_valid() {
+            // With spaces
             assert_eq!(
                 Coord::parse("46:51:44 N 009:19:42 E"),
                 Ok(Coord { lat: 46.86222222222222, lng: 9.328333333333333 })
             );
+
+            // Without spaces
             assert_eq!(
                 Coord::parse("46:51:44N 009:19:42E"),
                 Ok(Coord { lat: 46.86222222222222, lng: 9.328333333333333 })
             );
+
+            // Dot between min and sec
             assert_eq!(
                 Coord::parse("46:51.44 N 009:19.42 E"),
                 Ok(Coord { lat: 46.86222222222222, lng: 9.328333333333333 })
             );
+
+            // South / west
             assert_eq!(
                 Coord::parse("46:51:44 S 009:19:42 W"),
                 Ok(Coord { lat: -46.86222222222222, lng: -9.328333333333333 })
             );
+
+            // Fractional part
             assert_eq!(
                 Coord::parse("1:0:0.123 N 2:0:1.2 E"),
                 Ok(Coord { lat: 1.0 + 0.123 / 3600.0, lng: 2.0 + 1.2 / 3600.0 })
             );
-            assert!(Coord::parse("49:33:8N 5:47:37E").is_ok());
+
+            // Comma in between
             assert!(Coord::parse("45:42:21 N, 000:38:41 W").is_ok());
+
+            // Lowercase letters
+            assert!(Coord::parse("49:33:8 n 5:47:37 e").is_ok());
         }
 
         #[test]
