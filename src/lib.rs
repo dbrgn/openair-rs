@@ -135,7 +135,7 @@ impl fmt::Display for Altitude {
 impl Altitude {
     fn parse(data: &str) -> Result<Self, String> {
         match data {
-            "gnd" | "Gnd" | "GND" | "sfc" | "Sfc" | "SFC" => {
+            "gnd" | "Gnd" | "GND" | "sfc" | "Sfc" | "SFC" | "0" => {
                 // Note: SFC = Surface. Seems to be another abbreviation for GND.
                 Ok(Altitude::Gnd)
             }
