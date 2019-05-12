@@ -24,6 +24,22 @@ Supported file format features:
 - [ ] Support arcs
 - [x] Support circles
 
+Label placement hints (AT) and style records (SP, SB) are not supported.
+
+
+## Implementation Notes
+
+Unfortunately the `OpenAir` format is really underspecified. Every device
+uses varying conventions. For example, there is nothing we can use as clear
+delimiter for airspaces. Some files delimit airspaces with an empty line,
+some with a comment. But on the other hand, some files even place comments
+between the coordinates so that they cannot be used as delimiter either.
+
+This parser tries to be very lenient when parsing, based on real life data.
+The end of an airspace is reached when the next one starts (with an `AC`
+record) or when the file ends. **NOTE: Altitude levels without a unit specifier
+(e.g. "1000 GND") will be treated as feet!)**
+
 
 ## Example
 
