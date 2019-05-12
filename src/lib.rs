@@ -32,7 +32,7 @@ use std::io::BufRead;
 use std::mem;
 
 use lazy_static::lazy_static;
-use log::trace;
+use log::{debug, trace};
 use regex::Regex;
 
 #[cfg(feature = "serde")]
@@ -133,6 +133,17 @@ impl fmt::Display for Altitude {
 }
 
 impl Altitude {
+    fn m2ft(val: i32) -> Result<i32, &'static str> {
+        if val > 654553015 {
+            return Err("m2ft out of bounds (too large)");
+        } else if val < -654553016 {
+            return Err("m2ft out of bounds (too small)");
+        }
+        let m = f64::from(val);
+        let feet = m / 0.3048;
+        Ok(feet.round() as i32)
+    }
+
     fn parse(data: &str) -> Result<Self, String> {
         match data {
             "gnd" | "Gnd" | "GND" |
@@ -157,15 +168,21 @@ impl Altitude {
                 let number: String = other.chars().take_while(is_digit).collect();
                 let rest: String = other.chars().skip_while(is_digit).collect();
                 lazy_static! {
-                    static ref RE_AMSL: Regex = Regex::new(r"(?i)^ft$").unwrap();
-                    static ref RE_AGL: Regex = Regex::new(r"(?i)^(:?ft )?(:?agl|gnd|sfc)$").unwrap();
+                    static ref RE_FT_AMSL: Regex = Regex::new(r"(?i)^ft$").unwrap();
+                    static ref RE_M_AMSL: Regex = Regex::new(r"(?i)^m$").unwrap();
+                    static ref RE_FT_AGL: Regex = Regex::new(r"(?i)^(:?ft )?(:?agl|gnd|sfc)$").unwrap();
+                    static ref RE_M_AGL: Regex = Regex::new(r"(?i)^(:?m )?(:?agl|gnd|sfc)$").unwrap();
                 }
-                if let Ok(ft) = number.parse::<i32>() {
+                if let Ok(val) = number.parse::<i32>() {
                     let trimmed = rest.trim();
-                    if RE_AMSL.is_match(trimmed) {
-                        return Ok(Altitude::FeetAmsl(ft))
-                    } else if RE_AGL.is_match(trimmed) {
-                        return Ok(Altitude::FeetAgl(ft))
+                    if RE_FT_AMSL.is_match(trimmed) {
+                        return Ok(Altitude::FeetAmsl(val))
+                    } else if RE_FT_AGL.is_match(trimmed) {
+                        return Ok(Altitude::FeetAgl(val))
+                    } else if RE_M_AMSL.is_match(trimmed) {
+                        return Ok(Altitude::FeetAmsl(Self::m2ft(val)?))
+                    } else if RE_M_AGL.is_match(trimmed) {
+                        return Ok(Altitude::FeetAgl(Self::m2ft(val)?))
                     }
                 }
                 Err(format!("Invalid altitude: {}", other))
@@ -258,8 +275,8 @@ impl Coord {
                 ([EW])                                    # East / West
             ").unwrap();
         }
-        let invalid = |_| format!("Invalid coord: {}", data);
-        let cap = RE.captures(data).ok_or_else(|| format!("Invalid coord: {}", data))?;
+        let invalid = |_| format!("Invalid coord: \"{}\"", data);
+        let cap = RE.captures(data).ok_or_else(|| format!("Invalid coord: \"{}\"", data))?;
         let lat = Self::multiplier_lat(&cap[3]).map_err(invalid)?
                 * Self::parse_component(&cap[1]).map_err(invalid)?;
         let lng = Self::multiplier_lng(&cap[6]).map_err(invalid)?
@@ -527,7 +544,7 @@ impl AirspaceBuilder {
     }
 
     fn finish(self) -> Result<Airspace, String> {
-        trace!("Finish {:?}", self.name);
+        debug!("Finish {:?}", self.name);
         let name = self.name.ok_or("Missing name")?;
         let class = self.class.ok_or_else(|| format!("Missing class for '{}'", name))?;
         let lower_bound = self.lower_bound.ok_or_else(|| format!("Missing lower bound for '{}'", name))?;
@@ -734,17 +751,29 @@ mod tests {
         fn parse_invalid() {
             assert_eq!(
                 Coord::parse("46:51:44 Q 009:19:42 R"),
-                Err("Invalid coord: 46:51:44 Q 009:19:42 R".to_string())
+                Err("Invalid coord: \"46:51:44 Q 009:19:42 R\"".to_string())
             );
             assert_eq!(
                 Coord::parse("46x51x44 S 009x19x42 W"),
-                Err("Invalid coord: 46x51x44 S 009x19x42 W".to_string())
+                Err("Invalid coord: \"46x51x44 S 009x19x42 W\"".to_string())
             );
         }
     }
 
     mod altitude {
         use super::*;
+
+        #[test]
+        fn m2ft() {
+            assert_eq!(Altitude::m2ft(0).unwrap(), 0);
+            assert_eq!(Altitude::m2ft(1).unwrap(), 3);
+            assert_eq!(Altitude::m2ft(2).unwrap(), 7);
+            assert_eq!(Altitude::m2ft(100).unwrap(), 328);
+            assert_eq!(Altitude::m2ft(654553015).unwrap(), 2147483645);
+            assert_eq!(Altitude::m2ft(-654553016).unwrap(), -2147483648);
+            assert!(Altitude::m2ft(654553016).is_err());
+            assert!(Altitude::m2ft(-654553017).is_err());
+        }
 
         #[test]
         fn parse_gnd() {
