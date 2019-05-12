@@ -133,10 +133,11 @@ impl fmt::Display for Altitude {
 }
 
 impl Altitude {
+    #[allow(clippy::cast_possible_truncation)]
     fn m2ft(val: i32) -> Result<i32, &'static str> {
-        if val > 654553015 {
+        if val > 654_553_015 {
             return Err("m2ft out of bounds (too large)");
-        } else if val < -654553016 {
+        } else if val < -654_553_016 {
             return Err("m2ft out of bounds (too small)");
         }
         let m = f64::from(val);
@@ -769,10 +770,10 @@ mod tests {
             assert_eq!(Altitude::m2ft(1).unwrap(), 3);
             assert_eq!(Altitude::m2ft(2).unwrap(), 7);
             assert_eq!(Altitude::m2ft(100).unwrap(), 328);
-            assert_eq!(Altitude::m2ft(654553015).unwrap(), 2147483645);
-            assert_eq!(Altitude::m2ft(-654553016).unwrap(), -2147483648);
-            assert!(Altitude::m2ft(654553016).is_err());
-            assert!(Altitude::m2ft(-654553017).is_err());
+            assert_eq!(Altitude::m2ft(654_553_015).unwrap(), 2_147_483_645);
+            assert_eq!(Altitude::m2ft(-654_553_016).unwrap(), -2_147_483_648);
+            assert!(Altitude::m2ft(654_553_016).is_err());
+            assert!(Altitude::m2ft(-654_553_017).is_err());
         }
 
         #[test]
