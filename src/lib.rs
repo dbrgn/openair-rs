@@ -210,12 +210,20 @@ impl Coord {
         val.and_then(|v| v.parse::<u16>().ok()).ok_or(())
     }
 
+    #[allow(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]  // Impossible, since the RegEx limits length
     fn parse_component(val: &str) -> Result<f64, ()> {
         let mut parts = val.split(|c| c == ':' || c == '.');
         let deg = Self::parse_number_opt(parts.next())?;
         let min = Self::parse_number_opt(parts.next())?;
         let sec = Self::parse_number_opt(parts.next())?;
-        Ok(f64::from(deg) + f64::from(min) / 60.0 + f64::from(sec) / 3600.0)
+        let mut total = f64::from(deg) + f64::from(min) / 60.0 + f64::from(sec) / 3600.0;
+        if let Some(fractional) = parts.next() {
+            let frac = fractional.parse::<u16>().map_err(|_| ())?;
+            total += f64::from(frac)
+                   / 10_f64.powi(fractional.len() as i32)
+                   / 3600.0
+        }
+        Ok(total)
     }
 
     fn multiplier_lat(val: &str) -> Result<f64, ()> {
@@ -237,11 +245,11 @@ impl Coord {
     fn parse(data: &str) -> Result<Self, String> {
         lazy_static! {
             static ref RE: Regex = Regex::new(r"(?x)
-                ([0-9]{1,3}[.:][0-9]{1,3}[.:][0-9]{1,3})  # Lat
+                ([0-9]{1,3}[\.:][0-9]{1,3}[\.:][0-9]{1,3}\.?[0-9]{1,3}?)  # Lat
                 \s*
                 ([NS])                                    # North / South
                 \s*
-                ([0-9]{1,3}[.:][0-9]{1,3}[.:][0-9]{1,3})  # Lon
+                ([0-9]{1,3}[\.:][0-9]{1,3}[\.:][0-9]{1,3}\.?[0-9]{1,3}?)  # Lon
                 \s*
                 ([EW])                                    # East / West
             ").unwrap();
@@ -592,10 +600,11 @@ pub fn parse<R: BufRead>(reader: &mut R) -> Result<Vec<Airspace>, String> {
     let mut airspaces = vec![];
 
     let mut builder = AirspaceBuilder::new();
+    let mut buf: Vec<u8> = vec![];
     loop {
         // Read next line
-        let mut line = String::new();
-        let bytes_read = reader.read_line(&mut line)
+        buf.clear();
+        let bytes_read = reader.read_until(0x0a/*\n*/, &mut buf)
             .map_err(|e| format!("Could not read line: {}", e))?;
         if bytes_read == 0 {
             // EOF
@@ -603,9 +612,10 @@ pub fn parse<R: BufRead>(reader: &mut R) -> Result<Vec<Airspace>, String> {
             airspaces.push(builder.finish()?);
             return Ok(airspaces);
         }
+        let line = String::from_utf8_lossy(&buf);
 
-        // Trim BOM
-        let trimmed_line = line.trim_start_matches('\u{feff}');
+        // Trim BOM and whitespace
+        let trimmed_line = line.trim_start_matches('\u{feff}').trim();
 
         // Determine whether we reached the start of a new airspace
         let start_of_airspace = starts_airspace(trimmed_line);
@@ -632,7 +642,7 @@ mod tests {
 
         #[test]
         #[allow(clippy::unreadable_literal)]
-        fn parse() {
+        fn parse_valid() {
             assert_eq!(
                 Coord::parse("46:51:44 N 009:19:42 E"),
                 Ok(Coord { lat: 46.86222222222222, lng: 9.328333333333333 })
@@ -650,8 +660,20 @@ mod tests {
                 Ok(Coord { lat: -46.86222222222222, lng: -9.328333333333333 })
             );
             assert_eq!(
+                Coord::parse("1:0:0.123 N 2:0:1.2 E"),
+                Ok(Coord { lat: 1.0 + 0.123 / 3600.0, lng: 2.0 + 1.2 / 3600.0 })
+            );
+        }
+
+        #[test]
+        fn parse_invalid() {
+            assert_eq!(
                 Coord::parse("46:51:44 Q 009:19:42 R"),
                 Err("Invalid coord: 46:51:44 Q 009:19:42 R".to_string())
+            );
+            assert_eq!(
+                Coord::parse("46x51x44 S 009x19x42 W"),
+                Err("Invalid coord: 46x51x44 S 009x19x42 W".to_string())
             );
         }
     }
