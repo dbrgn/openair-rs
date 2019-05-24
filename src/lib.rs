@@ -169,7 +169,7 @@ impl Altitude {
                 let number: String = other.chars().take_while(is_digit).collect();
                 let rest: String = other.chars().skip_while(is_digit).collect();
                 lazy_static! {
-                    static ref RE_FT_AMSL: Regex = Regex::new(r"(?i)^ft$").unwrap();
+                    static ref RE_FT_AMSL: Regex = Regex::new(r"(?i)^ft(:? amsl)?$").unwrap();
                     static ref RE_M_AMSL: Regex = Regex::new(r"(?i)^m$").unwrap();
                     static ref RE_FT_AGL: Regex = Regex::new(r"(?i)^(:?ft )?(:?agl|gnd|sfc)$").unwrap();
                     static ref RE_M_AGL: Regex = Regex::new(r"(?i)^(:?m )?(:?agl|gnd|sfc)$").unwrap();
@@ -792,6 +792,7 @@ mod tests {
             assert_eq!(Altitude::parse("42 FT").unwrap(), Altitude::FeetAmsl(42));
             assert_eq!(Altitude::parse("42ft").unwrap(), Altitude::FeetAmsl(42));
             assert_eq!(Altitude::parse("42  ft").unwrap(), Altitude::FeetAmsl(42));
+            assert_eq!(Altitude::parse("42 ft AMSL").unwrap(), Altitude::FeetAmsl(42));
         }
 
         #[test]
