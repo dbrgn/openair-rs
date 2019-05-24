@@ -155,6 +155,7 @@ impl Altitude {
             }
             "unl" | "Unl" | "UNL" |
             "unlim" | "Unlim" | "UNLIM" |
+            "unltd" | "Unltd" | "UNLTD" |
             "unlimited" | "Unlimited" | "UNLIMITED" => {
                 Ok(Altitude::Unlimited)
             }
