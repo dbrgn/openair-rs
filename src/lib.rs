@@ -118,6 +118,8 @@ pub enum Altitude {
     FlightLevel(u16),
     /// Unlimited
     Unlimited,
+    /// Other (could not be parsed)
+    Other(String),
 }
 
 impl fmt::Display for Altitude {
@@ -128,6 +130,7 @@ impl fmt::Display for Altitude {
             Altitude::FeetAgl(ft) => write!(f, "{} ft AGL", ft),
             Altitude::FlightLevel(ft) => write!(f, "FL{}", ft),
             Altitude::Unlimited => write!(f, "Unlimited"),
+            Altitude::Other(val) => write!(f, "?({})", val),
         }
     }
 }
@@ -187,7 +190,7 @@ impl Altitude {
                         return Ok(Altitude::FeetAgl(Self::m2ft(val)?))
                     }
                 }
-                Err(format!("Invalid altitude: {}", other))
+                Ok(Altitude::Other(other.to_string()))
             }
         }
     }
