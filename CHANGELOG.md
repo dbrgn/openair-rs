@@ -12,6 +12,10 @@ Possible log types:
 - `[security]` to invite users to upgrade in case of vulnerabilities.
 
 
+### v0.2.0 (2019-06-06)
+
+- [changed] Improved parsing support
+
 ### v0.1.4 (2019-04-28)
 
 - [added] Support for serde serialization
