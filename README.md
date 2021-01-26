@@ -9,8 +9,6 @@ like Skytraxx and others).
 
 http://www.winpilot.com/UsersGuide/UserAirspace.asp (see also `FORMAT.txt`)
 
-This library requires Rust 2018 (1.31+).
-
 Docs: https://docs.rs/openair/
 
 
