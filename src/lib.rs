@@ -83,21 +83,21 @@ impl fmt::Display for Class {
 impl Class {
     fn parse(data: &str) -> Result<Self, String> {
         match data {
-            "A" => Ok(Class::A),
-            "B" => Ok(Class::B),
-            "C" => Ok(Class::C),
-            "D" => Ok(Class::D),
-            "E" => Ok(Class::E),
-            "F" => Ok(Class::F),
-            "G" => Ok(Class::G),
-            "CTR" => Ok(Class::CTR),
-            "R" => Ok(Class::Restricted),
-            "Q" => Ok(Class::Danger),
-            "P" => Ok(Class::Prohibited),
-            "GP" => Ok(Class::GliderProhibited),
-            "W" => Ok(Class::WaveWindow),
-            "RMZ" => Ok(Class::RadioMandatoryZone),
-            "TMZ" => Ok(Class::TransponderMandatoryZone),
+            "A" => Ok(Self::A),
+            "B" => Ok(Self::B),
+            "C" => Ok(Self::C),
+            "D" => Ok(Self::D),
+            "E" => Ok(Self::E),
+            "F" => Ok(Self::F),
+            "G" => Ok(Self::G),
+            "CTR" => Ok(Self::CTR),
+            "R" => Ok(Self::Restricted),
+            "Q" => Ok(Self::Danger),
+            "P" => Ok(Self::Prohibited),
+            "GP" => Ok(Self::GliderProhibited),
+            "W" => Ok(Self::WaveWindow),
+            "RMZ" => Ok(Self::RadioMandatoryZone),
+            "TMZ" => Ok(Self::TransponderMandatoryZone),
             other => Err(format!("Invalid class: {}", other))
         }
     }
@@ -125,12 +125,12 @@ pub enum Altitude {
 impl fmt::Display for Altitude {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Altitude::Gnd => write!(f, "GND"),
-            Altitude::FeetAmsl(ft) => write!(f, "{} ft AMSL", ft),
-            Altitude::FeetAgl(ft) => write!(f, "{} ft AGL", ft),
-            Altitude::FlightLevel(ft) => write!(f, "FL{}", ft),
-            Altitude::Unlimited => write!(f, "Unlimited"),
-            Altitude::Other(val) => write!(f, "?({})", val),
+            Self::Gnd => write!(f, "GND"),
+            Self::FeetAmsl(ft) => write!(f, "{} ft AMSL", ft),
+            Self::FeetAgl(ft) => write!(f, "{} ft AGL", ft),
+            Self::FlightLevel(ft) => write!(f, "FL{}", ft),
+            Self::Unlimited => write!(f, "Unlimited"),
+            Self::Other(val) => write!(f, "?({})", val),
         }
     }
 }
@@ -154,17 +154,17 @@ impl Altitude {
             "sfc" | "Sfc" | "SFC" |
             "0" => {
                 // Note: SFC = Surface. Seems to be another abbreviation for GND.
-                Ok(Altitude::Gnd)
+                Ok(Self::Gnd)
             }
             "unl" | "Unl" | "UNL" |
             "unlim" | "Unlim" | "UNLIM" |
             "unltd" | "Unltd" | "UNLTD" |
             "unlimited" | "Unlimited" | "UNLIMITED" => {
-                Ok(Altitude::Unlimited)
+                Ok(Self::Unlimited)
             }
             fl if fl.starts_with("fl") || fl.starts_with("Fl") || fl.starts_with("FL") => {
                 match fl[2..].trim().parse::<u16>() {
-                    Ok(val) => Ok(Altitude::FlightLevel(val)),
+                    Ok(val) => Ok(Self::FlightLevel(val)),
                     Err(_) => Err(format!("Invalid altitude: {}", fl)),
                 }
             }
@@ -181,16 +181,16 @@ impl Altitude {
                 if let Ok(val) = number.parse::<i32>() {
                     let trimmed = rest.trim();
                     if RE_FT_AMSL.is_match(trimmed) {
-                        return Ok(Altitude::FeetAmsl(val))
+                        return Ok(Self::FeetAmsl(val))
                     } else if RE_FT_AGL.is_match(trimmed) {
-                        return Ok(Altitude::FeetAgl(val))
+                        return Ok(Self::FeetAgl(val))
                     } else if RE_M_AMSL.is_match(trimmed) {
-                        return Ok(Altitude::FeetAmsl(Self::m2ft(val)?))
+                        return Ok(Self::FeetAmsl(Self::m2ft(val)?))
                     } else if RE_M_AGL.is_match(trimmed) {
-                        return Ok(Altitude::FeetAgl(Self::m2ft(val)?))
+                        return Ok(Self::FeetAgl(Self::m2ft(val)?))
                     }
                 }
-                Ok(Altitude::Other(other.to_string()))
+                Ok(Self::Other(other.to_string()))
             }
         }
     }
@@ -209,15 +209,15 @@ pub enum Direction {
 
 impl Default for Direction {
     fn default() -> Self {
-        Direction::Cw
+        Self::Cw
     }
 }
 
 impl Direction {
     fn parse(data: &str) -> Result<Self, String> {
         match data {
-            "+" => Ok(Direction::Cw),
-            "-" => Ok(Direction::Ccw),
+            "+" => Ok(Self::Cw),
+            "-" => Ok(Self::Ccw),
             _ => Err(format!("Invalid direction: {}", data)),
         }
     }
@@ -398,8 +398,8 @@ pub enum Geometry {
 impl fmt::Display for Geometry {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Geometry::Polygon { segments } => write!(f, "Polygon[{}]", segments.len()),
-            Geometry::Circle { radius, .. } => write!(f, "Circle[r={}NM]", radius),
+            Self::Polygon { segments } => write!(f, "Polygon[{}]", segments.len()),
+            Self::Circle { radius, .. } => write!(f, "Circle[r={}NM]", radius),
         }
     }
 }
