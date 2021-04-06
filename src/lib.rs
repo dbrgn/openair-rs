@@ -57,7 +57,7 @@ pub enum Class {
     /// Airspace G
     G,
     /// Controlled Traffic Region
-    CTR,
+    Ctr,
     /// Restricted area
     Restricted,
     /// Danger area
@@ -90,7 +90,7 @@ impl Class {
             "E" => Ok(Self::E),
             "F" => Ok(Self::F),
             "G" => Ok(Self::G),
-            "CTR" => Ok(Self::CTR),
+            "CTR" => Ok(Self::Ctr),
             "R" => Ok(Self::Restricted),
             "Q" => Ok(Self::Danger),
             "P" => Ok(Self::Prohibited),

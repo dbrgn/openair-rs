@@ -12,6 +12,10 @@ Possible log types:
 - `[security]` to invite users to upgrade in case of vulnerabilities.
 
 
+### Unreleased
+
+- [changed] Rename `Class::CTR` to `Class::Ctr`
+
 ### v0.2.0 (2019-06-06)
 
 - [changed] Improved parsing support
