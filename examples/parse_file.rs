@@ -1,8 +1,6 @@
 use std::fs::File;
 use std::io::BufReader;
 
-use env_logger;
-
 use openair::parse;
 
 macro_rules! fail {

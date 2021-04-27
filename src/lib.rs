@@ -23,7 +23,6 @@
 //!
 //! Note: AT records (label placement hints) are currently ignored
 #![deny(clippy::all)]
-#![warn(clippy::pedantic)]
 #![allow(clippy::many_single_char_names)]
 #![allow(clippy::non_ascii_literal)]
 
