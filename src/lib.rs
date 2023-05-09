@@ -168,7 +168,7 @@ impl Altitude {
                 }
             }
             other => {
-                let is_digit = |c: &char| c.is_digit(10);
+                let is_digit = |c: &char| c.is_ascii_digit();
                 let number: String = other.chars().take_while(is_digit).collect();
                 let rest: String = other.chars().skip_while(is_digit).collect();
                 lazy_static! {
@@ -583,7 +583,7 @@ fn process(builder: &mut AirspaceBuilder, line: &str) -> Result<(), String> {
     let mut chars = line.chars().filter(|c: &char| !c.is_ascii_whitespace());
     let t1 = chars.next().ok_or_else(|| "Line too short".to_string())?;
     let t2 = chars.next().unwrap_or(' ');
-    let data = line.splitn(2, ' ').nth(1).unwrap_or("").trim();
+    let data = line.split_once(' ').map(|x| x.1).unwrap_or("").trim();
 
     trace!("Input: \"{:1}{:1}\"", t1, t2);
     match (t1, t2) {
