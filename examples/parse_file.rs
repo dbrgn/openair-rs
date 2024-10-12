@@ -7,7 +7,7 @@ macro_rules! fail {
     ($msg:expr) => {{
         println!("Error: {}", $msg);
         std::process::exit(1);
-    }}
+    }};
 }
 
 fn main() -> std::io::Result<()> {

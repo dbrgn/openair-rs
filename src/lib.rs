@@ -97,7 +97,7 @@ impl Class {
             "W" => Ok(Self::WaveWindow),
             "RMZ" => Ok(Self::RadioMandatoryZone),
             "TMZ" => Ok(Self::TransponderMandatoryZone),
-            other => Err(format!("Invalid class: {}", other))
+            other => Err(format!("Invalid class: {}", other)),
         }
     }
 }
@@ -149,18 +149,12 @@ impl Altitude {
 
     fn parse(data: &str) -> Result<Self, String> {
         match data {
-            "gnd" | "Gnd" | "GND" |
-            "sfc" | "Sfc" | "SFC" |
-            "0" => {
+            "gnd" | "Gnd" | "GND" | "sfc" | "Sfc" | "SFC" | "0" => {
                 // Note: SFC = Surface. Seems to be another abbreviation for GND.
                 Ok(Self::Gnd)
             }
-            "unl" | "Unl" | "UNL" |
-            "unlim" | "Unlim" | "UNLIM" |
-            "unltd" | "Unltd" | "UNLTD" |
-            "unlimited" | "Unlimited" | "UNLIMITED" => {
-                Ok(Self::Unlimited)
-            }
+            "unl" | "Unl" | "UNL" | "unlim" | "Unlim" | "UNLIM" | "unltd" | "Unltd" | "UNLTD"
+            | "unlimited" | "Unlimited" | "UNLIMITED" => Ok(Self::Unlimited),
             fl if fl.starts_with("fl") || fl.starts_with("Fl") || fl.starts_with("FL") => {
                 match fl[2..].trim().parse::<u16>() {
                     Ok(val) => Ok(Self::FlightLevel(val)),
@@ -174,19 +168,21 @@ impl Altitude {
                 lazy_static! {
                     static ref RE_FT_AMSL: Regex = Regex::new(r"(?i)^ft(:? a?msl)?$").unwrap();
                     static ref RE_M_AMSL: Regex = Regex::new(r"(?i)^m(:?sl)?$").unwrap();
-                    static ref RE_FT_AGL: Regex = Regex::new(r"(?i)^(:?ft )?(:?agl|gnd|sfc)$").unwrap();
-                    static ref RE_M_AGL: Regex = Regex::new(r"(?i)^(:?m )?(:?agl|gnd|sfc)$").unwrap();
+                    static ref RE_FT_AGL: Regex =
+                        Regex::new(r"(?i)^(:?ft )?(:?agl|gnd|sfc)$").unwrap();
+                    static ref RE_M_AGL: Regex =
+                        Regex::new(r"(?i)^(:?m )?(:?agl|gnd|sfc)$").unwrap();
                 }
                 if let Ok(val) = number.parse::<i32>() {
                     let trimmed = rest.trim();
                     if RE_FT_AMSL.is_match(trimmed) {
-                        return Ok(Self::FeetAmsl(val))
+                        return Ok(Self::FeetAmsl(val));
                     } else if RE_FT_AGL.is_match(trimmed) {
-                        return Ok(Self::FeetAgl(val))
+                        return Ok(Self::FeetAgl(val));
                     } else if RE_M_AMSL.is_match(trimmed) {
-                        return Ok(Self::FeetAmsl(Self::m2ft(val)?))
+                        return Ok(Self::FeetAmsl(Self::m2ft(val)?));
                     } else if RE_M_AGL.is_match(trimmed) {
-                        return Ok(Self::FeetAgl(Self::m2ft(val)?))
+                        return Ok(Self::FeetAgl(Self::m2ft(val)?));
                     }
                 }
                 Ok(Self::Other(other.to_string()))
@@ -235,7 +231,7 @@ impl Coord {
         val.and_then(|v| v.parse::<u16>().ok()).ok_or(())
     }
 
-    #[allow(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]  // Impossible, since the RegEx limits length
+    #[allow(clippy::cast_possible_truncation, clippy::cast_possible_wrap)] // Impossible, since the RegEx limits length
     fn parse_component(val: &str) -> Result<f64, ()> {
         let mut parts = val.split([':', '.']);
         let deg = Self::parse_number_opt(parts.next())?;
@@ -244,9 +240,7 @@ impl Coord {
         let mut total = f64::from(deg) + f64::from(min) / 60.0 + f64::from(sec) / 3600.0;
         if let Some(fractional) = parts.next() {
             let frac = fractional.parse::<u16>().map_err(|_| ())?;
-            total += f64::from(frac)
-                   / 10_f64.powi(fractional.len() as i32)
-                   / 3600.0
+            total += f64::from(frac) / 10_f64.powi(fractional.len() as i32) / 3600.0
         }
         Ok(total)
     }
@@ -255,7 +249,7 @@ impl Coord {
         match val {
             "N" | "n" => Ok(1.0),
             "S" | "s" => Ok(-1.0),
-            _ => Err(())
+            _ => Err(()),
         }
     }
 
@@ -263,13 +257,14 @@ impl Coord {
         match val {
             "E" | "e" => Ok(1.0),
             "W" | "w" => Ok(-1.0),
-            _ => Err(())
+            _ => Err(()),
         }
     }
 
     fn parse(data: &str) -> Result<Self, String> {
         lazy_static! {
-            static ref RE: Regex = Regex::new(r"(?xi)
+            static ref RE: Regex = Regex::new(
+                r"(?xi)
                 ([0-9]{1,3}[\.:][0-9]{1,3}[\.:][0-9]{1,3}(:?\.?[0-9]{1,3})?)  # Lat
                 \s*
                 ([NS])                                    # North / South
@@ -277,14 +272,18 @@ impl Coord {
                 ([0-9]{1,3}[\.:][0-9]{1,3}[\.:][0-9]{1,3}(:?\.?[0-9]{1,3})?)  # Lon
                 \s*
                 ([EW])                                    # East / West
-            ").unwrap();
+            "
+            )
+            .unwrap();
         }
         let invalid = |_| format!("Invalid coord: \"{}\"", data);
-        let cap = RE.captures(data).ok_or_else(|| format!("Invalid coord: \"{}\"", data))?;
+        let cap = RE
+            .captures(data)
+            .ok_or_else(|| format!("Invalid coord: \"{}\"", data))?;
         let lat = Self::multiplier_lat(&cap[3]).map_err(invalid)?
-                * Self::parse_component(&cap[1]).map_err(invalid)?;
+            * Self::parse_component(&cap[1]).map_err(invalid)?;
         let lng = Self::multiplier_lng(&cap[6]).map_err(invalid)?
-                * Self::parse_component(&cap[4]).map_err(invalid)?;
+            * Self::parse_component(&cap[4]).map_err(invalid)?;
         Ok(Self { lat, lng })
     }
 }
@@ -384,7 +383,7 @@ pub enum Geometry {
         /// Segments describing the polygon.
         ///
         /// The polygon may be open or closed.
-        segments: Vec<PolygonSegment>
+        segments: Vec<PolygonSegment>,
     },
     Circle {
         /// The centerpoint of the circle.
@@ -436,11 +435,7 @@ impl fmt::Display for Airspace {
         write!(
             f,
             "{} [{}] ({} → {}) {{{}}}",
-            self.name,
-            self.class,
-            self.lower_bound,
-            self.upper_bound,
-            self.geom,
+            self.name, self.class, self.lower_bound, self.upper_bound, self.geom,
         )
     }
 }
@@ -471,7 +466,10 @@ macro_rules! setter {
         fn $method(&mut self, $field: $type) -> Result<(), String> {
             self.new = false;
             if self.$field.is_some() {
-                Err(format!("Could not set {} (already defined)", stringify!($field)))
+                Err(format!(
+                    "Could not set {} (already defined)",
+                    stringify!($field)
+                ))
             } else {
                 self.$field = Some($field);
                 Ok(())
@@ -535,25 +533,32 @@ impl AirspaceBuilder {
         self.new = false;
         match (&self.geom, &self.var_x) {
             (None, Some(centerpoint)) => {
-                self.geom = Some(Geometry::Circle { centerpoint: centerpoint.clone(), radius });
+                self.geom = Some(Geometry::Circle {
+                    centerpoint: centerpoint.clone(),
+                    radius,
+                });
                 Ok(())
             }
-            (Some(_), _) => {
-                Err("Geometry already set".into())
-            }
-            (_, None) => {
-                Err("Centerpoint missing".into())
-            }
+            (Some(_), _) => Err("Geometry already set".into()),
+            (_, None) => Err("Centerpoint missing".into()),
         }
     }
 
     fn finish(self) -> Result<Airspace, String> {
         debug!("Finish {:?}", self.name);
         let name = self.name.ok_or("Missing name")?;
-        let class = self.class.ok_or_else(|| format!("Missing class for '{}'", name))?;
-        let lower_bound = self.lower_bound.ok_or_else(|| format!("Missing lower bound for '{}'", name))?;
-        let upper_bound = self.upper_bound.ok_or_else(|| format!("Missing upper bound for '{}'", name))?;
-        let geom = self.geom.ok_or_else(|| format!("Missing geom for '{}'", name))?;
+        let class = self
+            .class
+            .ok_or_else(|| format!("Missing class for '{}'", name))?;
+        let lower_bound = self
+            .lower_bound
+            .ok_or_else(|| format!("Missing lower bound for '{}'", name))?;
+        let upper_bound = self
+            .upper_bound
+            .ok_or_else(|| format!("Missing upper bound for '{}'", name))?;
+        let geom = self
+            .geom
+            .ok_or_else(|| format!("Missing geom for '{}'", name))?;
         Ok(Airspace {
             name,
             class,
@@ -577,7 +582,7 @@ fn starts_airspace(line: &str) -> bool {
 fn process(builder: &mut AirspaceBuilder, line: &str) -> Result<(), String> {
     if line.trim().is_empty() {
         trace!("Empty line, ignoring");
-        return Ok(())
+        return Ok(());
     }
 
     let mut chars = line.chars().filter(|c: &char| !c.is_ascii_whitespace());
@@ -642,7 +647,9 @@ fn process(builder: &mut AirspaceBuilder, line: &str) -> Result<(), String> {
         }
         ('D', 'C') => {
             trace!("-> Found circle radius");
-            let radius = data.parse::<f32>().map_err(|_| format!("Invalid radius: {}", data))?;
+            let radius = data
+                .parse::<f32>()
+                .map_err(|_| format!("Invalid radius: {}", data))?;
             builder.set_circle_radius(radius)?;
         }
         ('D', 'A') => {
@@ -659,9 +666,7 @@ fn process(builder: &mut AirspaceBuilder, line: &str) -> Result<(), String> {
             let arc = Arc::parse(data, centerpoint, direction)?;
             builder.add_segment(PolygonSegment::Arc(arc))?;
         }
-        (t1, t2) => {
-            return Err(format!("Parse error (unexpected \"{:1}{:1}\")", t1, t2))
-        }
+        (t1, t2) => return Err(format!("Parse error (unexpected \"{:1}{:1}\")", t1, t2)),
     }
     Ok(())
 }
@@ -675,7 +680,8 @@ pub fn parse<R: BufRead>(reader: &mut R) -> Result<Vec<Airspace>, String> {
     loop {
         // Read next line
         buf.clear();
-        let bytes_read = reader.read_until(0x0a/*\n*/, &mut buf)
+        let bytes_read = reader
+            .read_until(0x0a /*\n*/, &mut buf)
             .map_err(|e| format!("Could not read line: {}", e))?;
         if bytes_read == 0 {
             // EOF
@@ -717,31 +723,46 @@ mod tests {
             // With spaces
             assert_eq!(
                 Coord::parse("46:51:44 N 009:19:42 E"),
-                Ok(Coord { lat: 46.86222222222222, lng: 9.328333333333333 })
+                Ok(Coord {
+                    lat: 46.86222222222222,
+                    lng: 9.328333333333333
+                })
             );
 
             // Without spaces
             assert_eq!(
                 Coord::parse("46:51:44N 009:19:42E"),
-                Ok(Coord { lat: 46.86222222222222, lng: 9.328333333333333 })
+                Ok(Coord {
+                    lat: 46.86222222222222,
+                    lng: 9.328333333333333
+                })
             );
 
             // Dot between min and sec
             assert_eq!(
                 Coord::parse("46:51.44 N 009:19.42 E"),
-                Ok(Coord { lat: 46.86222222222222, lng: 9.328333333333333 })
+                Ok(Coord {
+                    lat: 46.86222222222222,
+                    lng: 9.328333333333333
+                })
             );
 
             // South / west
             assert_eq!(
                 Coord::parse("46:51:44 S 009:19:42 W"),
-                Ok(Coord { lat: -46.86222222222222, lng: -9.328333333333333 })
+                Ok(Coord {
+                    lat: -46.86222222222222,
+                    lng: -9.328333333333333
+                })
             );
 
             // Fractional part
             assert_eq!(
                 Coord::parse("1:0:0.123 N 2:0:1.2 E"),
-                Ok(Coord { lat: 1.0 + 0.123 / 3600.0, lng: 2.0 + 1.2 / 3600.0 })
+                Ok(Coord {
+                    lat: 1.0 + 0.123 / 3600.0,
+                    lng: 2.0 + 1.2 / 3600.0
+                })
             );
 
             // Comma in between
@@ -795,7 +816,10 @@ mod tests {
             assert_eq!(Altitude::parse("42 FT").unwrap(), Altitude::FeetAmsl(42));
             assert_eq!(Altitude::parse("42ft").unwrap(), Altitude::FeetAmsl(42));
             assert_eq!(Altitude::parse("42  ft").unwrap(), Altitude::FeetAmsl(42));
-            assert_eq!(Altitude::parse("42 ft AMSL").unwrap(), Altitude::FeetAmsl(42));
+            assert_eq!(
+                Altitude::parse("42 ft AMSL").unwrap(),
+                Altitude::FeetAmsl(42)
+            );
         }
 
         #[test]
@@ -810,8 +834,14 @@ mod tests {
         #[test]
         fn parse_fl() {
             assert_eq!(Altitude::parse("fl50").unwrap(), Altitude::FlightLevel(50));
-            assert_eq!(Altitude::parse("FL 180").unwrap(), Altitude::FlightLevel(180));
-            assert_eq!(Altitude::parse("FL130").unwrap(), Altitude::FlightLevel(130));
+            assert_eq!(
+                Altitude::parse("FL 180").unwrap(),
+                Altitude::FlightLevel(180)
+            );
+            assert_eq!(
+                Altitude::parse("FL130").unwrap(),
+                Altitude::FlightLevel(130)
+            );
         }
     }
 
@@ -880,7 +910,8 @@ mod tests {
         /// Parse an airspace as generated by flyland.
         #[test]
         fn flyland_buochs() {
-            let mut airspace = indoc!("
+            let mut airspace = indoc!(
+                "
                 AC D
                 AN BUOCHS Be CTR 119.625
                 AL GND
@@ -891,7 +922,9 @@ mod tests {
                 DP 46:58:28 N 008:27:56 E
                 DP 46:57:13 N 008:27:52 E
                 * n-Points: 5
-            ").as_bytes();
+            "
+            )
+            .as_bytes();
             let mut spaces = parse(&mut airspace).unwrap();
             assert_eq!(spaces.len(), 1);
             let space: Airspace = spaces.pop().unwrap();
@@ -908,7 +941,8 @@ mod tests {
         /// The order of bounds should not matter.
         #[test]
         fn inverted_bounds() {
-            let mut a1 = indoc!("
+            let mut a1 = indoc!(
+                "
                 AC D
                 AN SOMESPACE
                 AL GND
@@ -916,8 +950,11 @@ mod tests {
                 DP 46:57:13 N 008:27:52 E
                 DP 46:57:46 N 008:30:41 E
                 *
-            ").as_bytes();
-            let mut a2 = indoc!("
+            "
+            )
+            .as_bytes();
+            let mut a2 = indoc!(
+                "
                 AC D
                 AN SOMESPACE
                 AH 12959 ft
@@ -925,7 +962,9 @@ mod tests {
                 DP 46:57:13 N 008:27:52 E
                 DP 46:57:46 N 008:30:41 E
                 *
-            ").as_bytes();
+            "
+            )
+            .as_bytes();
             let space1 = parse(&mut a1).unwrap().pop().unwrap();
             let space2 = parse(&mut a2).unwrap().pop().unwrap();
             assert_eq!(space1, space2);
@@ -934,7 +973,8 @@ mod tests {
         /// Variables can be defined multiple times.
         #[test]
         fn multi_variable() {
-            let mut a = indoc!("
+            let mut a = indoc!(
+                "
                 AC D
                 AN SOMESPACE
                 AL GND
@@ -946,32 +986,44 @@ mod tests {
                 V D=-
                 DA 4,60,30
                 *
-            ").as_bytes();
+            "
+            )
+            .as_bytes();
             let airspace = parse(&mut a).unwrap().pop().unwrap();
-            assert_eq!(airspace.geom, Geometry::Polygon {
-                segments: vec![
-                    PolygonSegment::ArcSegment(ArcSegment {
-                        centerpoint: Coord { lat: 52.0, lng: 13.0 },
-                        radius: 2.0,
-                        angle_start: 0.0,
-                        angle_end: 30.0,
-                        direction: Direction::Cw,
-                    }),
-                    PolygonSegment::ArcSegment(ArcSegment {
-                        centerpoint: Coord { lat: 52.0, lng: 13.0 },
-                        radius: 4.0,
-                        angle_start: 60.0,
-                        angle_end: 30.0,
-                        direction: Direction::Ccw,
-                    }),
-                ],
-            });
+            assert_eq!(
+                airspace.geom,
+                Geometry::Polygon {
+                    segments: vec![
+                        PolygonSegment::ArcSegment(ArcSegment {
+                            centerpoint: Coord {
+                                lat: 52.0,
+                                lng: 13.0
+                            },
+                            radius: 2.0,
+                            angle_start: 0.0,
+                            angle_end: 30.0,
+                            direction: Direction::Cw,
+                        }),
+                        PolygonSegment::ArcSegment(ArcSegment {
+                            centerpoint: Coord {
+                                lat: 52.0,
+                                lng: 13.0
+                            },
+                            radius: 4.0,
+                            angle_start: 60.0,
+                            angle_end: 30.0,
+                            direction: Direction::Ccw,
+                        }),
+                    ],
+                }
+            );
         }
 
         /// Test AY/AF/AG records.
         #[test]
         fn extension_records() {
-            let mut a = indoc!("
+            let mut a = indoc!(
+                "
                 AC D
                 AN SOMESPACE
                 AL GND
@@ -981,7 +1033,9 @@ mod tests {
                 AG Dutch Mil
                 V X=52:00:00 N 013:00:00 E
                 DC 5
-            ").as_bytes();
+            "
+            )
+            .as_bytes();
             let airspace = parse(&mut a).unwrap().pop().unwrap();
             assert_eq!(airspace.type_, Some("AWY".to_string()));
             assert_eq!(airspace.frequency, Some("132.350".to_string()));
@@ -1006,7 +1060,10 @@ mod tests {
                         PolygonSegment::Point(Coord { lat: 1.0, lng: 2.0 }),
                         PolygonSegment::Point(Coord { lat: 1.1, lng: 2.0 }),
                         PolygonSegment::Arc(Arc {
-                            centerpoint: Coord { lat: 1.05, lng: 2.05 },
+                            centerpoint: Coord {
+                                lat: 1.05,
+                                lng: 2.05,
+                            },
                             start: Coord { lat: 1.1, lng: 2.0 },
                             end: Coord { lat: 1.0, lng: 2.1 },
                             direction: Direction::Cw,
