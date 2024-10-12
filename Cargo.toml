@@ -1,6 +1,6 @@
 [package]
 name = "openair"
-version = "0.3.1"
+version = "0.3.2"
 authors = ["Danilo Bargen <mail@dbrgn.ch>"]
 description = "Parser for airspace files in OpenAir format."
 keywords = ["airspace", "skytraxx", "variometer", "openair", "parser"]

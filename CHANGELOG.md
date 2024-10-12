@@ -14,6 +14,10 @@ Possible log types:
 
 ### Unreleased
 
+- ...
+
+### v0.3.2 (2024-10-12)
+
 - [fix] Keep serializing `Class::Ctr` as `CTR`
 
 ### v0.3.1 (2024-10-12)
