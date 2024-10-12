@@ -14,7 +14,13 @@ Possible log types:
 
 ### Unreleased
 
+...
+
+### v0.3.0 (2024-10-12)
+
+- [added] Allow altitude as "ft MSL" (#9)
 - [changed] Rename `Class::CTR` to `Class::Ctr`
+- [changed] Update to Rust 2021 edition
 
 ### v0.2.0 (2019-06-06)
 
