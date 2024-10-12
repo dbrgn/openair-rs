@@ -1,7 +1,6 @@
 # openair-rs
 
 [![CircleCI][circle-ci-badge]][circle-ci]
-[![Rust][rust-badge]][github]
 [![Docs][docs-badge]][docs]
 
 A Rust parser for airspace files in OpenAir format (used by flight instruments
@@ -73,7 +72,5 @@ be dual licensed as above, without any additional terms or conditions.
 <!-- Badges -->
 [circle-ci]: https://circleci.com/gh/dbrgn/openair-rs/tree/master
 [circle-ci-badge]: https://circleci.com/gh/dbrgn/openair-rs/tree/master.svg?style=shield
-[github]: https://github.com/dbrgn/openair-rs
-[rust-badge]: https://img.shields.io/badge/rust-2018%2B-blue.svg?maxAge=3600
 [docs]: https://docs.rs/openair/
 [docs-badge]: https://img.shields.io/badge/docs-docs.rs-yellow.svg?maxAge=3600
