@@ -16,6 +16,10 @@ Possible log types:
 
 ...
 
+### v0.3.1 (2024-10-12)
+
+- [fixed] Fix missing example in crates.io release
+
 ### v0.3.0 (2024-10-12)
 
 - [added] Allow altitude as "ft MSL" (#9)
