@@ -237,7 +237,7 @@ impl Coord {
 
     #[allow(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]  // Impossible, since the RegEx limits length
     fn parse_component(val: &str) -> Result<f64, ()> {
-        let mut parts = val.split(|c| c == ':' || c == '.');
+        let mut parts = val.split([':', '.']);
         let deg = Self::parse_number_opt(parts.next())?;
         let min = Self::parse_number_opt(parts.next())?;
         let sec = Self::parse_number_opt(parts.next())?;
