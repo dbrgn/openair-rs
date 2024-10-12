@@ -56,6 +56,7 @@ pub enum Class {
     /// Airspace G
     G,
     /// Controlled Traffic Region
+    #[cfg_attr(feature = "serde", serde(rename = "CTR"))]
     Ctr,
     /// Restricted area
     Restricted,
@@ -1106,6 +1107,32 @@ mod tests {
                        \"direction\":\"ccw\"},\
                       {\"type\":\"Point\",\"lat\":1.0,\"lng\":2.0}\
                     ]\
+                  }\
+                 }"
+            );
+        }
+
+        #[test]
+        fn serialize_json_ctr() {
+            let airspace = Airspace {
+                name: "Control Zone".into(),
+                class: Class::Ctr,
+                lower_bound: Altitude::Gnd,
+                upper_bound: Altitude::FeetAgl(1000),
+                geom: Geometry::Polygon { segments: vec![] },
+                type_: None,
+                frequency: None,
+                call_sign: None,
+            };
+            assert_eq!(
+                to_string(&airspace).unwrap(),
+                "{\"name\":\"Control Zone\",\
+                  \"class\":\"CTR\",\
+                  \"lowerBound\":{\"type\":\"Gnd\"},\
+                  \"upperBound\":{\"type\":\"FeetAgl\",\"val\":1000},\
+                  \"geom\":{\
+                    \"type\":\"Polygon\",\
+                    \"segments\":[]\
                   }\
                  }"
             );
