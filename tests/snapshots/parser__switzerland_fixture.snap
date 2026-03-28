@@ -3,7 +3,9 @@ source: tests/parser.rs
 expression: spaces.first().unwrap()
 ---
 Airspace {
-    name: "ALPNACH CTR 128.475",
+    name: Some(
+        "ALPNACH CTR 128.475",
+    ),
     class: D,
     type_: None,
     lower_bound: Gnd,

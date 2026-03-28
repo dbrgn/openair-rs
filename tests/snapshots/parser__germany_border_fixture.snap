@@ -3,7 +3,9 @@ source: tests/parser.rs
 expression: spaces.first().unwrap()
 ---
 Airspace {
-    name: "FIR Bremen 125.100",
+    name: Some(
+        "FIR Bremen 125.100",
+    ),
     class: C,
     type_: None,
     lower_bound: FlightLevel(

@@ -3,7 +3,9 @@ source: tests/parser.rs
 expression: spaces.last().unwrap()
 ---
 Airspace {
-    name: "LF-R17 E1 TEMPO ECKMUHL",
+    name: Some(
+        "LF-R17 E1 TEMPO ECKMUHL",
+    ),
     class: Unclassified,
     type_: Some(
         "R",
