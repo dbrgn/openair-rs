@@ -85,6 +85,8 @@ pub use crate::{
     geometry::{Arc, ArcSegment, Direction, Geometry, PolygonSegment},
 };
 
+const FALLBACK_NAME: &str = "<unnamed>";
+
 /// An airspace.
 #[derive(Debug, PartialEq)]
 #[cfg_attr(feature = "serde", derive(Serialize))]
@@ -124,7 +126,7 @@ impl fmt::Display for Airspace {
         write!(
             f,
             "{} [{}] ({} → {}) {{{}}}",
-            self.name.as_deref().unwrap_or(""),
+            self.name.as_deref().unwrap_or(FALLBACK_NAME),
             self.class,
             self.lower_bound,
             self.upper_bound,
@@ -285,7 +287,7 @@ impl<R: BufRead> OpenAirIterator<R> {
                 // However, if we have accumulated an airspace, we should return it first
                 if let Some(class) = class {
                     debug!("Finish {:?}", name);
-                    let label = name.as_deref().unwrap_or("<unnamed>");
+                    let label = name.as_deref().unwrap_or(FALLBACK_NAME);
                     let lower_bound =
                         lower_bound.ok_or_else(|| format!("Missing lower bound for '{label}'"))?;
                     let upper_bound =
@@ -323,7 +325,7 @@ impl<R: BufRead> OpenAirIterator<R> {
 
                 // Build and return airspace from accumulated data
                 debug!("Finish {:?}", name);
-                let label = name.as_deref().unwrap_or("<unnamed>");
+                let label = name.as_deref().unwrap_or(FALLBACK_NAME);
                 let lower_bound =
                     lower_bound.ok_or_else(|| format!("Missing lower bound for '{label}'"))?;
                 let upper_bound =
