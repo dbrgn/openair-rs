@@ -6,7 +6,7 @@
 A Rust library for reading and writing airspace files in OpenAir format (used by flight instruments
 like Skytraxx and others).
 
-http://www.winpilot.com/UsersGuide/UserAirspace.asp (see also `FORMAT.txt`)
+https://github.com/naviter/seeyou_file_formats/blob/main/OpenAir_File_Format_Support.md (see also `FORMAT.txt`)
 
 Docs: https://docs.rs/openair/
 

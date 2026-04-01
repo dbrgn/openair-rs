@@ -4,6 +4,9 @@
 *    Updated October 15, 1999
 *    Send comments to jerryp@winpilot.com
 *
+*    For a more up-to-date specification, see:
+*    https://github.com/naviter/seeyou_file_formats/blob/main/OpenAir_File_Format_Support.md
+*
 *
 *  AIRSPACE related record types:
 *  ==============================
