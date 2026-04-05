@@ -3,7 +3,9 @@ source: tests/parser.rs
 expression: spaces.first().unwrap()
 ---
 Airspace {
-    name: "ZSM GYPAETE BARBU NID FELCE 2025",
+    name: Some(
+        "ZSM GYPAETE BARBU NID FELCE 2025",
+    ),
     class: Unclassified,
     type_: Some(
         "OFR",

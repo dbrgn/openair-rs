@@ -72,7 +72,7 @@ fn flyland_buochs() {
     let mut spaces = parse(&mut airspace).collect::<Result<Vec<_>, _>>().unwrap();
     assert_eq!(spaces.len(), 1);
     let space: Airspace = spaces.pop().unwrap();
-    assert_eq!(space.name, "BUOCHS Be CTR 119.625");
+    assert_eq!(space.name.as_deref(), Some("BUOCHS Be CTR 119.625"));
     assert_eq!(space.lower_bound, Altitude::Gnd);
     assert_eq!(space.upper_bound, Altitude::FeetAmsl(12959));
     if let Geometry::Polygon { segments } = space.geom {
@@ -185,6 +185,29 @@ fn extension_records() {
     assert_eq!(airspace.transponder_code, Some(1234));
 }
 
+/// AN is optional per the OpenAir spec. Airspaces without AN should parse
+/// successfully with `name` set to `None`.
+#[test]
+fn missing_name() {
+    let mut airspace = indoc! {"
+        AC D
+        AL GND
+        AH 5000 ft
+        DP 50:00:00 N 010:00:00 E
+        DP 50:00:00 N 010:01:00 E
+        DP 50:01:00 N 010:01:00 E
+        DP 50:01:00 N 010:00:00 E
+    "}
+    .as_bytes();
+    let spaces = parse(&mut airspace).collect::<Result<Vec<_>, _>>().unwrap();
+    assert_eq!(spaces.len(), 1);
+    let space = &spaces[0];
+    assert_eq!(space.name, None);
+    assert_eq!(space.class, Class::D);
+    assert_eq!(space.lower_bound, Altitude::Gnd);
+    assert_eq!(space.upper_bound, Altitude::FeetAmsl(5000));
+}
+
 /// Test that AN (Airspace Name) can act as a separator when it appears before AC.
 /// Some files use AN before AC, making AN the delimiter between airspaces.
 #[test]
@@ -225,14 +248,14 @@ fn an_record_as_separator() {
 
     // Check first airspace
     let first = &spaces[0];
-    assert_eq!(first.name, "FIRST AIRSPACE");
+    assert_eq!(first.name.as_deref(), Some("FIRST AIRSPACE"));
     assert_eq!(first.class, Class::D);
     assert_eq!(first.lower_bound, Altitude::Gnd);
     assert_eq!(first.upper_bound, Altitude::FeetAmsl(5000));
 
     // Check second airspace
     let second = &spaces[1];
-    assert_eq!(second.name, "SECOND AIRSPACE");
+    assert_eq!(second.name.as_deref(), Some("SECOND AIRSPACE"));
     assert_eq!(second.class, Class::Restricted);
     assert_eq!(second.lower_bound, Altitude::FeetAmsl(1000));
     assert_eq!(second.upper_bound, Altitude::FlightLevel(100));

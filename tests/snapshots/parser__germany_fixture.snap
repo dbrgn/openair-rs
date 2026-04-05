@@ -3,7 +3,9 @@ source: tests/parser.rs
 expression: spaces.first().unwrap()
 ---
 Airspace {
-    name: "ED-R LINDENBERG",
+    name: Some(
+        "ED-R LINDENBERG",
+    ),
     class: Restricted,
     type_: None,
     lower_bound: Gnd,

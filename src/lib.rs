@@ -26,7 +26,7 @@
 //! use openair::{Airspace, Altitude, Class, Coord, Geometry};
 //!
 //! let airspace = Airspace {
-//!     name: "Example Zone".to_string(),
+//!     name: Some("Example Zone".to_string()),
 //!     class: Class::D,
 //!     type_: None,
 //!     lower_bound: Altitude::Gnd,
@@ -85,13 +85,15 @@ pub use crate::{
     geometry::{Arc, ArcSegment, Direction, Geometry, PolygonSegment},
 };
 
+const FALLBACK_NAME: &str = "<unnamed>";
+
 /// An airspace.
 #[derive(Debug, PartialEq)]
 #[cfg_attr(feature = "serde", derive(Serialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 pub struct Airspace {
     /// The name / description of the airspace
-    pub name: String,
+    pub name: Option<String>,
     /// The airspace class
     pub class: Class,
     /// The airspace type (extension record)
@@ -124,7 +126,11 @@ impl fmt::Display for Airspace {
         write!(
             f,
             "{} [{}] ({} → {}) {{{}}}",
-            self.name, self.class, self.lower_bound, self.upper_bound, self.geom,
+            self.name.as_deref().unwrap_or(FALLBACK_NAME),
+            self.class,
+            self.lower_bound,
+            self.upper_bound,
+            self.geom,
         )
     }
 }
@@ -140,8 +146,10 @@ impl Airspace {
             Record::AirspaceType(type_).write(&mut writer)?;
         }
 
-        // 3. AN (name) - required
-        Record::AirspaceName(&self.name).write(&mut writer)?;
+        // 3. AN (name) - optional
+        if let Some(ref name) = self.name {
+            Record::AirspaceName(name).write(&mut writer)?;
+        }
 
         // 4. AL (lower bound) - required
         Record::LowerBound(self.lower_bound.clone()).write(&mut writer)?;
@@ -279,12 +287,12 @@ impl<R: BufRead> OpenAirIterator<R> {
                 // However, if we have accumulated an airspace, we should return it first
                 if let Some(class) = class {
                     debug!("Finish {:?}", name);
-                    let name = name.ok_or("Missing name")?;
+                    let label = name.as_deref().unwrap_or(FALLBACK_NAME);
                     let lower_bound =
-                        lower_bound.ok_or_else(|| format!("Missing lower bound for '{name}'"))?;
+                        lower_bound.ok_or_else(|| format!("Missing lower bound for '{label}'"))?;
                     let upper_bound =
-                        upper_bound.ok_or_else(|| format!("Missing upper bound for '{name}'"))?;
-                    let geom = geom.ok_or_else(|| format!("Missing geom for '{name}'"))?;
+                        upper_bound.ok_or_else(|| format!("Missing upper bound for '{label}'"))?;
+                    let geom = geom.ok_or_else(|| format!("Missing geom for '{label}'"))?;
                     return Ok(Some(Airspace {
                         name,
                         class,
@@ -317,12 +325,12 @@ impl<R: BufRead> OpenAirIterator<R> {
 
                 // Build and return airspace from accumulated data
                 debug!("Finish {:?}", name);
-                let name = name.ok_or("Missing name")?;
+                let label = name.as_deref().unwrap_or(FALLBACK_NAME);
                 let lower_bound =
-                    lower_bound.ok_or_else(|| format!("Missing lower bound for '{name}'"))?;
+                    lower_bound.ok_or_else(|| format!("Missing lower bound for '{label}'"))?;
                 let upper_bound =
-                    upper_bound.ok_or_else(|| format!("Missing upper bound for '{name}'"))?;
-                let geom = geom.ok_or_else(|| format!("Missing geom for '{name}'"))?;
+                    upper_bound.ok_or_else(|| format!("Missing upper bound for '{label}'"))?;
+                let geom = geom.ok_or_else(|| format!("Missing geom for '{label}'"))?;
                 // We already checked that class.is_some() in should_yield condition
                 let class = class.unwrap();
                 return Ok(Some(Airspace {
@@ -538,9 +546,39 @@ mod tests {
     }
 
     #[test]
+    fn write_without_name() {
+        let airspace = Airspace {
+            name: None,
+            class: Class::D,
+            type_: None,
+            lower_bound: Altitude::Gnd,
+            upper_bound: Altitude::FlightLevel(100),
+            geom: Geometry::Circle {
+                centerpoint: Coord {
+                    lat: 47.0,
+                    lng: 8.0,
+                },
+                radius: 5.0,
+            },
+            frequency: None,
+            call_sign: None,
+            transponder_code: None,
+            activation_times: None,
+        };
+
+        insta::assert_snapshot!(write_airspace(&airspace), @r"
+        AC D
+        AL GND
+        AH FL100
+        V X=47:00:00 N 008:00:00 E
+        DC 5
+        ");
+    }
+
+    #[test]
     fn write_minimal_circle() {
         let airspace = Airspace {
-            name: "Test Zone".to_string(),
+            name: Some("Test Zone".to_string()),
             class: Class::D,
             type_: None,
             lower_bound: Altitude::Gnd,
@@ -571,7 +609,7 @@ mod tests {
     #[test]
     fn write_full_circle() {
         let airspace = Airspace {
-            name: "Full Test Zone".to_string(),
+            name: Some("Full Test Zone".to_string()),
             class: Class::Ctr,
             type_: Some("CTR".to_string()),
             lower_bound: Altitude::FeetAmsl(1000),
@@ -607,7 +645,7 @@ mod tests {
     #[test]
     fn write_polygon_with_points() {
         let airspace = Airspace {
-            name: "Polygon Zone".to_string(),
+            name: Some("Polygon Zone".to_string()),
             class: Class::A,
             type_: None,
             lower_bound: Altitude::Gnd,
@@ -648,7 +686,7 @@ mod tests {
     #[test]
     fn write_polygon_with_arc_segment() {
         let airspace = Airspace {
-            name: "Arc Segment Zone".to_string(),
+            name: Some("Arc Segment Zone".to_string()),
             class: Class::Restricted,
             type_: None,
             lower_bound: Altitude::FeetAgl(0),
@@ -692,7 +730,7 @@ mod tests {
     #[test]
     fn write_polygon_with_arc() {
         let airspace = Airspace {
-            name: "Arc Zone".to_string(),
+            name: Some("Arc Zone".to_string()),
             class: Class::Danger,
             type_: None,
             lower_bound: Altitude::Gnd,

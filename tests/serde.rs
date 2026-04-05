@@ -6,7 +6,7 @@ use openair::*;
 #[test]
 fn serialize_json() {
     let airspace = Airspace {
-        name: "SUPERSPACE".into(),
+        name: Some("SUPERSPACE".into()),
         class: Class::Prohibited,
         lower_bound: Altitude::Gnd,
         upper_bound: Altitude::FeetAgl(3000),
@@ -45,7 +45,7 @@ fn serialize_json() {
 #[test]
 fn serialize_json_ctr() {
     let airspace = Airspace {
-        name: "Control Zone".into(),
+        name: Some("Control Zone".into()),
         class: Class::Ctr,
         lower_bound: Altitude::Gnd,
         upper_bound: Altitude::FeetAgl(1000),

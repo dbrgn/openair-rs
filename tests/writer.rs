@@ -3,7 +3,7 @@ use openair::{Airspace, Altitude, Class, Coord, Geometry, PolygonSegment};
 #[test]
 fn write_single_airspace() {
     let airspace = Airspace {
-        name: "Test Zone".to_string(),
+        name: Some("Test Zone".to_string()),
         class: Class::D,
         type_: None,
         lower_bound: Altitude::Gnd,
@@ -38,7 +38,7 @@ fn write_single_airspace() {
 #[test]
 fn write_multiple_airspaces() {
     let airspace1 = Airspace {
-        name: "Zone A".to_string(),
+        name: Some("Zone A".to_string()),
         class: Class::A,
         type_: None,
         lower_bound: Altitude::Gnd,
@@ -57,7 +57,7 @@ fn write_multiple_airspaces() {
     };
 
     let airspace2 = Airspace {
-        name: "Zone B".to_string(),
+        name: Some("Zone B".to_string()),
         class: Class::B,
         type_: None,
         lower_bound: Altitude::FeetAmsl(1000),
@@ -85,7 +85,7 @@ fn write_multiple_airspaces() {
     };
 
     let airspace3 = Airspace {
-        name: "Zone C".to_string(),
+        name: Some("Zone C".to_string()),
         class: Class::C,
         type_: Some("CTR".to_string()),
         lower_bound: Altitude::Gnd,
@@ -149,7 +149,7 @@ fn write_empty_iterator() {
 #[test]
 fn write_with_vec() {
     let airspace = Airspace {
-        name: "Test".to_string(),
+        name: Some("Test".to_string()),
         class: Class::D,
         type_: None,
         lower_bound: Altitude::Gnd,
