@@ -16,6 +16,15 @@ Possible log types:
 
 - ...
 
+### v0.5.0 (2026-04-19)
+
+- [added] Implement writing functionality for OpenAir files (#43)
+- [added] Add support for activation times extension records (#38)
+- [added] Implement header-based airspace separation (#44)
+- [changed] Make `Airspace::name` optional (#48)
+- [changed] Update to Rust Edition 2024 (#39)
+- [changed] Replace `regex` dependency with manual parsers for coordinate and altitude parsing
+
 ### v0.4.0 (2025-10-18)
 
 - [added] Add support for AC UNC (Unclassified) (#19)
