@@ -399,7 +399,7 @@ mod tests {
         let times = "2023-12-16T12:00Z/2023-12-16T13:00Z".parse().unwrap();
         assert_eq!(
             write_record(Record::ActivationTimes(times)),
-            "AA 2023-12-16T12:00:00.0+00:00/2023-12-16T13:00:00.0+00:00\r\n"
+            "AA 2023-12-16T12:00:00.000+00:00/2023-12-16T13:00:00.000+00:00\r\n"
         );
     }
 

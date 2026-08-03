@@ -210,21 +210,21 @@ mod tests {
             .unwrap();
         assert_eq!(
             write_activation_times(&times),
-            "2023-12-16T12:00:00.0+00:00/2023-12-16T13:00:00.0+00:00"
+            "2023-12-16T12:00:00.000+00:00/2023-12-16T13:00:00.000+00:00"
         );
 
         // Start only
         let times = "2024-12-17T00:00Z/NONE".parse::<ActivationTimes>().unwrap();
         assert_eq!(
             write_activation_times(&times),
-            "2024-12-17T00:00:00.0+00:00/NONE"
+            "2024-12-17T00:00:00.000+00:00/NONE"
         );
 
         // End only
         let times = "NONE/2024-12-18T00:00Z".parse::<ActivationTimes>().unwrap();
         assert_eq!(
             write_activation_times(&times),
-            "NONE/2024-12-18T00:00:00.0+00:00"
+            "NONE/2024-12-18T00:00:00.000+00:00"
         );
 
         // None
