@@ -4,7 +4,8 @@ expression: airspace
 ---
 {
   "name": "Control Zone",
-  "class": "CTR",
+  "class": "UNC",
+  "type": "CTR",
   "lowerBound": {
     "type": "Gnd"
   },

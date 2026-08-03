@@ -179,10 +179,31 @@ fn extension_records() {
     .as_bytes();
     let spaces = parse(&mut a).collect::<Result<Vec<_>, _>>().unwrap();
     let airspace = spaces.last().unwrap();
-    assert_eq!(airspace.type_, Some("AWY".to_string()));
+    assert_eq!(airspace.type_, Some(AirspaceType::Airway));
     assert_eq!(airspace.frequency, Some("132.350".to_string()));
     assert_eq!(airspace.call_sign, Some("Dutch Mil".to_string()));
     assert_eq!(airspace.transponder_code, Some(1234));
+}
+
+#[test]
+fn unknown_class_and_type_are_preserved() {
+    let mut input = indoc! {"
+        AC FUTURE_CLASS
+        AY FUTURE_TYPE
+        AL GND
+        AH FL100
+        V X=52:00:00 N 013:00:00 E
+        DC 5
+    "}
+    .as_bytes();
+
+    let airspace = parse(&mut input).next().unwrap().unwrap();
+
+    assert_eq!(airspace.class, Class::Unknown("FUTURE_CLASS".into()));
+    assert_eq!(
+        airspace.type_,
+        Some(AirspaceType::Unknown("FUTURE_TYPE".into()))
+    );
 }
 
 /// AN is optional per the OpenAir spec. Airspaces without AN should parse
@@ -256,7 +277,7 @@ fn an_record_as_separator() {
     // Check second airspace
     let second = &spaces[1];
     assert_eq!(second.name.as_deref(), Some("SECOND AIRSPACE"));
-    assert_eq!(second.class, Class::Restricted);
+    assert_eq!(second.class, Class::Unknown("R".into()));
     assert_eq!(second.lower_bound, Altitude::FeetAmsl(1000));
     assert_eq!(second.upper_bound, Altitude::FlightLevel(100));
 }

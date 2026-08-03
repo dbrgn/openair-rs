@@ -1,4 +1,4 @@
-use openair::{Airspace, Altitude, Class, Coord, Geometry, PolygonSegment};
+use openair::{Airspace, AirspaceType, Altitude, Class, Coord, Geometry, PolygonSegment};
 
 #[test]
 fn write_single_airspace() {
@@ -87,7 +87,7 @@ fn write_multiple_airspaces() {
     let airspace3 = Airspace {
         name: Some("Zone C".to_string()),
         class: Class::C,
-        type_: Some("CTR".to_string()),
+        type_: Some(AirspaceType::ControlZone),
         lower_bound: Altitude::Gnd,
         upper_bound: Altitude::Unlimited,
         geom: Geometry::Circle {
@@ -180,5 +180,39 @@ fn write_with_vec() {
     AH FL50
     V X=47:00:00 N 008:00:00 E
     DC 3
+    ");
+}
+
+#[test]
+fn write_unknown_class_and_type() {
+    let airspace = Airspace {
+        name: None,
+        class: Class::Unknown("FUTURE_CLASS".into()),
+        type_: Some(AirspaceType::Unknown("FUTURE_TYPE".into())),
+        lower_bound: Altitude::Gnd,
+        upper_bound: Altitude::FlightLevel(100),
+        geom: Geometry::Circle {
+            centerpoint: Coord {
+                lat: 47.0,
+                lng: 8.0,
+            },
+            radius: 5.0,
+        },
+        frequency: None,
+        call_sign: None,
+        transponder_code: None,
+        activation_times: None,
+    };
+
+    let mut output = Vec::new();
+    openair::write(&mut output, [&airspace]).unwrap();
+
+    insta::assert_snapshot!(String::from_utf8(output).unwrap(), @r"
+    AC FUTURE_CLASS
+    AY FUTURE_TYPE
+    AL GND
+    AH FL100
+    V X=47:00:00 N 008:00:00 E
+    DC 5
     ");
 }

@@ -61,6 +61,7 @@
 #![deny(clippy::all)]
 
 mod activations;
+mod airspace_types;
 mod altitude;
 mod classes;
 mod coords;
@@ -79,6 +80,7 @@ use serde::Serialize;
 use crate::record::Record;
 pub use crate::{
     activations::ActivationTimes,
+    airspace_types::AirspaceType,
     altitude::Altitude,
     classes::Class,
     coords::Coord,
@@ -99,7 +101,7 @@ pub struct Airspace {
     /// The airspace type (extension record)
     #[cfg_attr(feature = "serde", serde(rename = "type"))]
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
-    pub type_: Option<String>,
+    pub type_: Option<AirspaceType>,
     /// The lower bound of the airspace
     pub lower_bound: Altitude,
     /// The upper bound of the airspace
@@ -139,11 +141,11 @@ impl Airspace {
     /// Writes the airspace in OpenAir format.
     pub fn write<W: Write>(&self, mut writer: W) -> std::io::Result<()> {
         // 1. AC (class) - required
-        Record::AirspaceClass(self.class).write(&mut writer)?;
+        Record::AirspaceClass(self.class.clone()).write(&mut writer)?;
 
         // 2. AY (type) - optional
         if let Some(ref type_) = self.type_ {
-            Record::AirspaceType(type_).write(&mut writer)?;
+            Record::AirspaceType(type_.clone()).write(&mut writer)?;
         }
 
         // 3. AN (name) - optional
@@ -255,7 +257,7 @@ impl<R: BufRead> OpenAirIterator<R> {
         let mut lower_bound: Option<Altitude> = None;
         let mut upper_bound: Option<Altitude> = None;
         let mut geom: Option<Geometry> = None;
-        let mut type_: Option<String> = None;
+        let mut type_: Option<AirspaceType> = None;
         let mut frequency: Option<String> = None;
         let mut call_sign: Option<String> = None;
         let mut transponder_code: Option<u16> = None;
@@ -389,7 +391,7 @@ impl<R: BufRead> OpenAirIterator<R> {
                     if type_.is_some() {
                         return Err("Could not set type (already defined)".to_string());
                     }
-                    type_ = Some(parsed_type.to_string());
+                    type_ = Some(parsed_type);
                 }
                 Record::Frequency(parsed_freq) => {
                     if frequency.is_some() {
@@ -610,8 +612,8 @@ mod tests {
     fn write_full_circle() {
         let airspace = Airspace {
             name: Some("Full Test Zone".to_string()),
-            class: Class::Ctr,
-            type_: Some("CTR".to_string()),
+            class: Class::Unknown("CTR".into()),
+            type_: Some(AirspaceType::ControlZone),
             lower_bound: Altitude::FeetAmsl(1000),
             upper_bound: Altitude::FeetAmsl(5000),
             geom: Geometry::Circle {
@@ -687,7 +689,7 @@ mod tests {
     fn write_polygon_with_arc_segment() {
         let airspace = Airspace {
             name: Some("Arc Segment Zone".to_string()),
-            class: Class::Restricted,
+            class: Class::Unknown("R".into()),
             type_: None,
             lower_bound: Altitude::FeetAgl(0),
             upper_bound: Altitude::FeetAmsl(3000),
@@ -731,7 +733,7 @@ mod tests {
     fn write_polygon_with_arc() {
         let airspace = Airspace {
             name: Some("Arc Zone".to_string()),
-            class: Class::Danger,
+            class: Class::Unknown("Q".into()),
             type_: None,
             lower_bound: Altitude::Gnd,
             upper_bound: Altitude::FlightLevel(50),

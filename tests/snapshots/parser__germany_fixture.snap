@@ -6,7 +6,9 @@ Airspace {
     name: Some(
         "ED-R LINDENBERG",
     ),
-    class: Restricted,
+    class: Unknown(
+        "R",
+    ),
     type_: None,
     lower_bound: Gnd,
     upper_bound: FeetAmsl(

@@ -4,7 +4,8 @@ expression: airspace
 ---
 {
   "name": "SUPERSPACE",
-  "class": "Prohibited",
+  "class": "P",
+  "type": "FUTURE",
   "lowerBound": {
     "type": "Gnd"
   },

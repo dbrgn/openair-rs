@@ -7,7 +7,7 @@ use openair::*;
 fn serialize_json() {
     let airspace = Airspace {
         name: Some("SUPERSPACE".into()),
-        class: Class::Prohibited,
+        class: Class::Unknown("P".into()),
         lower_bound: Altitude::Gnd,
         upper_bound: Altitude::FeetAgl(3000),
         geom: Geometry::Polygon {
@@ -33,7 +33,7 @@ fn serialize_json() {
                 PolygonSegment::Point(Coord { lat: 1.0, lng: 2.0 }),
             ],
         },
-        type_: None,
+        type_: Some(AirspaceType::Unknown("FUTURE".into())),
         frequency: None,
         call_sign: None,
         transponder_code: None,
@@ -46,11 +46,11 @@ fn serialize_json() {
 fn serialize_json_ctr() {
     let airspace = Airspace {
         name: Some("Control Zone".into()),
-        class: Class::Ctr,
+        class: Class::Unclassified,
         lower_bound: Altitude::Gnd,
         upper_bound: Altitude::FeetAgl(1000),
         geom: Geometry::Polygon { segments: vec![] },
-        type_: None,
+        type_: Some(AirspaceType::ControlZone),
         frequency: None,
         call_sign: None,
         transponder_code: None,
