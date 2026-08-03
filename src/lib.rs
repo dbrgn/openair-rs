@@ -66,6 +66,7 @@ mod altitude;
 mod classes;
 mod coords;
 mod geometry;
+mod legacy_classes;
 mod record;
 
 use std::{
@@ -85,6 +86,7 @@ pub use crate::{
     classes::Class,
     coords::Coord,
     geometry::{Arc, ArcSegment, Direction, Geometry, PolygonSegment},
+    legacy_classes::LegacyClassConflict,
 };
 
 const FALLBACK_NAME: &str = "<unnamed>";
