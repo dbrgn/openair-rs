@@ -3,8 +3,10 @@ use std::{io::Write, str::FromStr};
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct ActivationTimes {
-    start: Option<iso8601::DateTime>,
-    end: Option<iso8601::DateTime>,
+    /// The activation start time, or `None` when no start is specified.
+    pub start: Option<iso8601::DateTime>,
+    /// The activation end time, or `None` when no end is specified.
+    pub end: Option<iso8601::DateTime>,
 }
 
 impl ActivationTimes {
