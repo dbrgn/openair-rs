@@ -16,6 +16,13 @@ Possible log types:
 
 - ...
 
+### v0.6.0 (2026-08-22)
+
+- [added] Add support for OpenAir v2 `AY` airspace types (#52)
+- [added] Add `Airspace::normalize_legacy_class()` (#52)
+- [changed] Align `AC` airspace classes with the OpenAir v2 specification (#52)
+- [changed] Expose `ActivationTimes` fields (#53)
+
 ### v0.5.0 (2026-04-19)
 
 - [added] Implement writing functionality for OpenAir files (#43)
