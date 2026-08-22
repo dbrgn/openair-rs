@@ -3,8 +3,8 @@ use std::io::Write;
 use log::trace;
 
 use crate::{
-    activations::ActivationTimes, altitude::Altitude, classes::Class, coords::Coord,
-    geometry::Direction,
+    activations::ActivationTimes, airspace_types::AirspaceType, altitude::Altitude, classes::Class,
+    coords::Coord, geometry::Direction,
 };
 
 /// Validate an angle is in the range 0..360.
@@ -28,7 +28,7 @@ pub enum Record<'a> {
     UpperBound(Altitude),
 
     // Extension records
-    AirspaceType(&'a str),
+    AirspaceType(AirspaceType),
     Frequency(&'a str),
     CallSign(&'a str),
     TransponderCode(u16),
@@ -82,8 +82,10 @@ impl<'a> Record<'a> {
     /// Writes the record in OpenAir format with CRLF line ending.
     pub fn write<W: Write>(self, mut writer: W) -> std::io::Result<()> {
         match self {
-            Record::AirspaceClass(class) => write!(writer, "AC {}\r\n", class.to_str()),
-            Record::AirspaceType(ty) => write!(writer, "AY {ty}\r\n"),
+            Record::AirspaceClass(class) => write!(writer, "AC {}\r\n", class.as_str()),
+            Record::AirspaceType(airspace_type) => {
+                write!(writer, "AY {}\r\n", airspace_type.as_str())
+            }
             Record::AirspaceName(name) => write!(writer, "AN {name}\r\n"),
             Record::LowerBound(alt) => {
                 write!(writer, "AL ")?;
@@ -187,8 +189,9 @@ impl<'a> Record<'a> {
                 Ok(Record::LabelPlacement)
             }
             ('A', 'Y') => {
-                trace!("-> Found type: {}", data);
-                Ok(Record::AirspaceType(data))
+                let airspace_type = AirspaceType::parse(data)?;
+                trace!("-> Found type: {}", airspace_type.as_str());
+                Ok(Record::AirspaceType(airspace_type))
             }
             ('A', 'F') => {
                 trace!("-> Found frequency: {}", data);
@@ -349,14 +352,19 @@ mod tests {
     fn write_airspace_class() {
         assert_eq!(write_record(Record::AirspaceClass(Class::A)), "AC A\r\n");
         assert_eq!(
-            write_record(Record::AirspaceClass(Class::Ctr)),
+            write_record(Record::AirspaceClass(Class::Unknown("CTR".into()))),
             "AC CTR\r\n"
         );
     }
 
     #[test]
     fn write_airspace_type() {
-        assert_eq!(write_record(Record::AirspaceType("MATZ")), "AY MATZ\r\n");
+        assert_eq!(
+            write_record(Record::AirspaceType(
+                AirspaceType::MilitaryAerodromeTrafficZone
+            )),
+            "AY MATZ\r\n"
+        );
     }
 
     #[test]

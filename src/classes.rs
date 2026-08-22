@@ -1,8 +1,7 @@
 use std::fmt;
 
 /// Airspace class.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Class {
     /// Airspace A
     A,
@@ -18,25 +17,20 @@ pub enum Class {
     F,
     /// Airspace G
     G,
-    /// Controlled Traffic Region
-    #[cfg_attr(feature = "serde", serde(rename = "CTR"))]
-    Ctr,
-    /// Restricted area
-    Restricted,
-    /// Danger area
-    Danger,
-    /// Prohibited area
-    Prohibited,
-    /// Prohibited for gliders
-    GliderProhibited,
-    /// Wave window
-    WaveWindow,
-    /// Radio mandatory zone
-    RadioMandatoryZone,
-    /// Transponder mandatory zone
-    TransponderMandatoryZone,
     /// Unclassified
     Unclassified,
+    /// Airspace class token not defined by the supported OpenAir specification.
+    Unknown(Box<str>),
+}
+
+#[cfg(feature = "serde")]
+impl serde::Serialize for Class {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(self.as_str())
+    }
 }
 
 impl fmt::Display for Class {
@@ -46,7 +40,12 @@ impl fmt::Display for Class {
 }
 
 impl Class {
+    /// Parses and preserves an OpenAir airspace class token.
     pub fn parse(data: &str) -> Result<Self, String> {
+        if data.is_empty() {
+            return Err("Airspace class is empty".to_string());
+        }
+
         match data {
             "A" => Ok(Self::A),
             "B" => Ok(Self::B),
@@ -55,21 +54,13 @@ impl Class {
             "E" => Ok(Self::E),
             "F" => Ok(Self::F),
             "G" => Ok(Self::G),
-            "CTR" => Ok(Self::Ctr),
-            "R" => Ok(Self::Restricted),
-            "Q" => Ok(Self::Danger),
-            "P" => Ok(Self::Prohibited),
-            "GP" => Ok(Self::GliderProhibited),
-            "W" => Ok(Self::WaveWindow),
-            "RMZ" => Ok(Self::RadioMandatoryZone),
-            "TMZ" => Ok(Self::TransponderMandatoryZone),
             "UNC" => Ok(Self::Unclassified),
-            other => Err(format!("Invalid class: {other}")),
+            other => Ok(Self::Unknown(other.into())),
         }
     }
 
-    /// Returns the OpenAir string representation for this class.
-    pub fn to_str(&self) -> &str {
+    /// Returns the original OpenAir airspace class token.
+    pub fn as_str(&self) -> &str {
         match self {
             Self::A => "A",
             Self::B => "B",
@@ -78,15 +69,8 @@ impl Class {
             Self::E => "E",
             Self::F => "F",
             Self::G => "G",
-            Self::Ctr => "CTR",
-            Self::Restricted => "R",
-            Self::Danger => "Q",
-            Self::Prohibited => "P",
-            Self::GliderProhibited => "GP",
-            Self::WaveWindow => "W",
-            Self::RadioMandatoryZone => "RMZ",
-            Self::TransponderMandatoryZone => "TMZ",
             Self::Unclassified => "UNC",
+            Self::Unknown(value) => value,
         }
     }
 }
@@ -96,22 +80,33 @@ mod tests {
     use super::*;
 
     #[test]
-    fn to_str() {
-        assert_eq!(Class::A.to_str(), "A");
-        assert_eq!(Class::B.to_str(), "B");
-        assert_eq!(Class::C.to_str(), "C");
-        assert_eq!(Class::D.to_str(), "D");
-        assert_eq!(Class::E.to_str(), "E");
-        assert_eq!(Class::F.to_str(), "F");
-        assert_eq!(Class::G.to_str(), "G");
-        assert_eq!(Class::Ctr.to_str(), "CTR");
-        assert_eq!(Class::Restricted.to_str(), "R");
-        assert_eq!(Class::Danger.to_str(), "Q");
-        assert_eq!(Class::Prohibited.to_str(), "P");
-        assert_eq!(Class::GliderProhibited.to_str(), "GP");
-        assert_eq!(Class::WaveWindow.to_str(), "W");
-        assert_eq!(Class::RadioMandatoryZone.to_str(), "RMZ");
-        assert_eq!(Class::TransponderMandatoryZone.to_str(), "TMZ");
-        assert_eq!(Class::Unclassified.to_str(), "UNC");
+    fn parses_standard_classes() {
+        for (token, expected) in [
+            ("A", Class::A),
+            ("B", Class::B),
+            ("C", Class::C),
+            ("D", Class::D),
+            ("E", Class::E),
+            ("F", Class::F),
+            ("G", Class::G),
+            ("UNC", Class::Unclassified),
+        ] {
+            let class = Class::parse(token).unwrap();
+            assert_eq!(class, expected);
+            assert_eq!(class.as_str(), token);
+        }
+    }
+
+    #[test]
+    fn preserves_unknown_class() {
+        let class = Class::parse("R").unwrap();
+
+        assert_eq!(class, Class::Unknown("R".into()));
+        assert_eq!(class.as_str(), "R");
+    }
+
+    #[test]
+    fn rejects_empty_class() {
+        assert_eq!(Class::parse(""), Err("Airspace class is empty".to_string()));
     }
 }

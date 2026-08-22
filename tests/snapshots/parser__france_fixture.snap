@@ -8,7 +8,7 @@ Airspace {
     ),
     class: Unclassified,
     type_: Some(
-        "OFR",
+        OverflightRestriction,
     ),
     lower_bound: Gnd,
     upper_bound: FeetAmsl(
